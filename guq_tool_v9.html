@@ -877,7 +877,7 @@ function detectMime(buf){
 // ---- ADD IMAGE PAGE TO ZIP ----
 // imgBuf: ArrayBuffer of image, imgIdx: unique index (1,2,3...), zip: JSZip instance
 // Returns the XML paragraph block to inject into document body
-function addImageToZip(zip, imgBuf, imgIdx){
+function addImageToZip(zip, imgBuf, imgIdx, totalImgs){
   const mime=detectMime(imgBuf);
   const ext=mime==='image/png'?'png':mime==='image/gif'?'gif':'jpg';
   const mediaPath='word/media/cccd_'+imgIdx+'.'+ext;
@@ -885,27 +885,25 @@ function addImageToZip(zip, imgBuf, imgIdx){
   // Add image file to zip
   zip.file(mediaPath, imgBuf);
 
-  // Add Content_Types entry for this extension if not already present
-  // (handled by patching Content_Types.xml)
-
-  // Get dimensions — target max width 17cm (6141 EMU/cm → 17cm = 6350400 EMU page width minus margins)
-  // Page: 12240 twips wide, margins 1080+990=2070 twips → usable 10170 twips = 10170/1440*914400 ≈ 6454050 EMU
+  // Get dimensions
   const dims=getImgDims(imgBuf,mime);
   // Page usable: width ~16.5cm (6000000 EMU), height ~24cm (8700000 EMU)
-  // Half page height = ~4350000 EMU (~12cm) — minimum size per image
-  // Max per image = ~8cm height so 2-3 images fit on one page
+  // Divide page height evenly among all images, with small spacing gap per image
+  const n=Math.max(totalImgs||1,1);
+  const pageH=8700000; // ~24cm usable page height in EMU
+  const spacing=200000; // ~0.55cm gap between images
   const maxEmuW=6000000; // ~16.5cm max width
-  const maxEmuH=2900000; // ~8cm max height per image (fits 2-3 per page)
-  const minEmuW=3500000; // ~9.6cm min width (at least half page width)
-  const minEmuH=1800000; // ~5cm min height (at least reasonable size)
+  // Each image gets an equal slice of the page height minus gaps
+  const maxEmuH=Math.floor((pageH - spacing*(n+1)) / n);
+  const minEmuW=3500000; // ~9.6cm min width
   let emuW=Math.round(dims.w*9144); // 1px ≈ 9144 EMU at 96dpi
   let emuH=Math.round(dims.h*9144);
-  // Scale down if too large
+  // Scale down to fit within allocated slot (maintain aspect ratio)
   if(emuW>maxEmuW){const r=maxEmuW/emuW;emuW=maxEmuW;emuH=Math.round(emuH*r);}
   if(emuH>maxEmuH){const r=maxEmuH/emuH;emuH=maxEmuH;emuW=Math.round(emuW*r);}
-  // Scale up if too small (at least half page width)
-  if(emuW<minEmuW && emuH<minEmuH){
-    const r=Math.min(minEmuW/emuW, minEmuH/emuH);
+  // Scale up if too small (at least ~9.6cm wide)
+  if(emuW<minEmuW){
+    const r=minEmuW/emuW;
     emuW=Math.round(emuW*r); emuH=Math.round(emuH*r);
     // Re-check max after scaling up
     if(emuW>maxEmuW){const r2=maxEmuW/emuW;emuW=maxEmuW;emuH=Math.round(emuH*r2);}
@@ -1018,7 +1016,7 @@ async function buildOneDoc(templateBytes, koc, opts){
     const relEntries=[]; const usedExts=new Set();
     let imgPages=pageBreak;
     imgBufs.forEach((buf,i)=>{
-      const info=addImageToZip(zip,buf,i+1);
+      const info=addImageToZip(zip,buf,i+1,imgBufs.length);
       relEntries.push(info); usedExts.add(info.ext);
       imgPages+=imgParaXml(info.rId,info.emuW,info.emuH,i+1);
     });
@@ -1063,9 +1061,9 @@ async function buildMergedDoc(templateBytes, kocs, opts){
     const imgBufs=await resolveImgs(kocs[i]);
     if(imgBufs.length){
       mergedBody+=pageBreak;
-      imgBufs.forEach(buf=>{
+      imgBufs.forEach((buf,j)=>{
         imgIdx++;
-        const info=addImageToZip(zip,buf,imgIdx);
+        const info=addImageToZip(zip,buf,imgIdx,imgBufs.length);
         relEntries.push(info); usedExts.add(info.ext);
         mergedBody+=imgParaXml(info.rId,info.emuW,info.emuH,imgIdx);
       });
