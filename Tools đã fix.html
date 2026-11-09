@@ -1,0 +1,1162 @@
+<title>GUQ Generator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f6fa;--sf:#fff;--sf2:#f0f2f7;--bd:#d6dbe8;--fg:#1a1d2e;--fg2:#4a5068;--ac:#3b5bdb;--acl:#e8ecfd;--ach:#2f4ac7;--ok:#2f9e44;--okb:#ebfbee;--er:#c92a2a;--erb:#fff5f5;color-scheme:light}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0d0f1a;--sf:#161926;--sf2:#1e2235;--bd:#2a2f4a;--fg:#e8ebf5;--fg2:#8891b8;--ac:#748ffc;--acl:#1a2056;--ach:#91a7ff;--ok:#51cf66;--okb:#0a2010;--er:#ff6b6b;--erb:#200a0a;color-scheme:dark}}
+:root[data-theme=dark]{--bg:#0d0f1a;--sf:#161926;--sf2:#1e2235;--bd:#2a2f4a;--fg:#e8ebf5;--fg2:#8891b8;--ac:#748ffc;--acl:#1a2056;--ach:#91a7ff;--ok:#51cf66;--okb:#0a2010;--er:#ff6b6b;--erb:#200a0a;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Be Vietnam Pro",sans-serif;font-size:14px;background:var(--bg);color:var(--fg);padding-block:24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font-size:21px;font-weight:700;margin:0 0 3px;color:var(--ac)}
+.sub{color:var(--fg2);font-size:12.5px;margin-bottom:18px}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.ct{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ac);margin:0 0 10px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.f{display:flex;flex-direction:column;gap:4px;flex:1;min-width:170px}
+.f.w100{min-width:100%;flex-basis:100%}
+label{font-size:11px;font-weight:600;color:var(--fg2)}
+input,select{background:var(--sf2);border:1px solid var(--bd);border-radius:7px;padding:7px 10px;font-size:13px;color:var(--fg);font-family:inherit;width:100%;transition:border .15s}
+input:focus,select:focus{outline:none;border-color:var(--ac)}
+.uz{border:2px dashed var(--bd);border-radius:10px;padding:16px;text-align:center;cursor:pointer;color:var(--fg2);position:relative;transition:border .2s,background .2s}
+.uz:hover,.uz.drag{border-color:var(--ac);background:var(--acl)}
+.uz input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.tw{overflow-x:auto;margin-top:8px}
+table{border-collapse:collapse;width:100%;font-size:11.5px}
+th{background:var(--sf2);color:var(--fg2);font-weight:600;padding:5px 8px;text-align:left;white-space:nowrap}
+td{border-top:1px solid var(--bd);padding:5px 8px;vertical-align:top}
+td.ov{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+tr:hover td{background:var(--acl)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;font-size:13.5px;font-weight:600;border:none;cursor:pointer;font-family:inherit;transition:background .15s}
+.bp{background:var(--ac);color:#fff}.bp:hover{background:var(--ach)}
+.bs{background:var(--sf2);color:var(--fg);border:1px solid var(--bd)}.bs:hover{background:var(--bd)}
+.bsm{padding:4px 10px;font-size:11.5px}
+.bg{background:var(--okb);color:var(--ok);border:1px solid var(--ok)}
+.br{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.log{background:#0a0c14;border:1px solid var(--bd);border-radius:7px;padding:9px 11px;font-family:monospace;font-size:11px;max-height:200px;overflow-y:auto;margin-top:8px;color:#8891b8;display:none}
+.log .ok{color:#51cf66}.log .er{color:#ff6b6b}.log .inf{color:#748ffc}.log .dbg{color:#ffd43b}
+.pb{background:var(--sf2);border-radius:20px;height:6px;overflow:hidden;margin-top:7px;display:none}
+.pbi{height:100%;background:var(--ac);border-radius:20px;transition:width .3s;width:0}
+.ib{background:var(--acl);border:1px solid var(--ac);border-radius:7px;padding:8px 11px;font-size:11.5px;color:var(--fg2);margin-bottom:9px}
+.sep{border:none;border-top:1px solid var(--bd);margin:14px 0}
+.tb{flex:1;padding:8px;border-radius:7px;border:2px solid var(--bd);background:var(--sf2);cursor:pointer;font-size:13px;font-weight:600;color:var(--fg2);font-family:inherit}
+.tb.on{border-color:var(--ac);background:var(--acl);color:var(--ac)}
+.un{font-size:11.5px;color:var(--ok);font-weight:600;margin-top:4px}
+#th{position:fixed;top:11px;right:11px;background:var(--sf);border:1px solid var(--bd);border-radius:7px;padding:5px 8px;cursor:pointer;font-size:14px;z-index:100}
+.folder-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--sf2);border:1px solid var(--bd);border-radius:7px;font-size:12.5px;margin-top:10px}
+.folder-row span{flex:1;color:var(--fg2)}
+@media(max-width:580px){.row{flex-direction:column}.f{min-width:unset}}
+</style>
+<button id="th" onclick="toggleTheme()">🌙</button>
+<h1>📄 GUQ Generator</h1>
+<p class="sub">Tạo Giấy Ủy Quyền từ dữ liệu Excel — Hepmil Vietnam</p>
+
+<div class="card">
+<div class="ct">👤 II. NHÀ QUẢN LÝ</div>
+<div class="row">
+  <div class="f"><label>Họ tên</label><input id="mgr_name" value="Võ Đức Huy Phúc"></div>
+  <div class="f"><label>CCCD</label><input id="mgr_cccd" value="066200016584"></div>
+  <div class="f"><label>Mã số thuế</label><input id="mgr_mst" value="066200016584"></div>
+</div>
+<div class="row" style="margin-top:8px">
+  <div class="f w100"><label>Địa chỉ</label><input id="mgr_addr" value="Chung cư 43 Hồ Văn Huê, Đức Nhuận, Phú Nhuận, TP.HCM"></div>
+</div>
+</div>
+
+<div class="card">
+<div class="ct">📋 III. NỘI DUNG ỦY QUYỀN</div>
+<div class="row">
+  <div class="f"><label>Tên Campaign</label><input id="camp_name" placeholder="GOOGL_..."></div>
+  <div class="f"><label>Thời gian</label><input id="camp_time" placeholder="Tháng 09/2026"></div>
+  <div class="f"><label>Ngày ký (DD/MM/YYYY)</label><input id="sign_date"></div>
+</div>
+</div>
+
+<div class="card">
+<div class="ct">📊 DỮ LIỆU KOC</div>
+<div class="ib">
+  <b>Hỗ trợ 2 cấu trúc Excel:</b><br>
+  &nbsp;① Cột riêng: <code>STT</code>, <code>Họ và tên</code>, <code>Số CCCD</code>, <code>Địa chỉ</code>, <code>Link Tiktok / ID kênh</code><br>
+  &nbsp;② Cột gộp: <code>STT</code> + cột <code>Thông tin</code> (chứa họ tên/CCCD/địa chỉ/kênh theo dòng)<br>
+  Sau khi upload, kiểm tra bảng "Dữ liệu đã parse" để xác nhận thông tin đúng.
+</div>
+<div class="uz" id="ez" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
+  <input type="file" accept=".xlsx,.xls" onchange="loadExcel(this.files[0])">
+  <div style="font-size:24px">📂</div>
+  <div style="font-size:13px">Kéo thả hoặc <b>bấm chọn</b> file Excel</div>
+  <div class="un" id="en"></div>
+</div>
+<div id="ep"></div>
+</div>
+
+<div class="card">
+<div class="ct">🖼️ ẢNH CCCD (tùy chọn)</div>
+<div class="ib">
+  Ảnh CCCD sẽ được ghép vào <b>trang cuối</b> của mỗi GUQ (sau trang ký tên).<br>
+  <b>Cách 1 — Apps Script proxy</b> (tự động từ Drive folder): Deploy script 1 lần → paste URL vào ô bên dưới.<br>
+  <b>Cách 2 — Upload thủ công</b>: Chọn nhiều ảnh, đặt tên có STT (vd: <code>1_front.jpg</code>, <code>1_back.jpg</code>).
+</div>
+
+<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+  <div class="f">
+    <label>🔗 Apps Script URL (cố định — chỉ admin chỉnh sửa)</label>
+    <input id="gas_url" placeholder="https://script.google.com/macros/s/.../exec" readonly style="cursor:default;opacity:0.7" onfocus="checkAdminUnlock(this)">
+  </div>
+  <div style="padding-top:14px;display:flex;gap:6px">
+    <button class="btn bs bsm" onclick="toggleAdminMode()">🔐 Admin</button>
+    <button class="btn bs bsm" onclick="showGasHelp()">❓ Hướng dẫn</button>
+  </div>
+</div>
+<div id="gas_help" style="display:none;background:var(--sf2);border:1px solid var(--bd);border-radius:7px;padding:10px;font-size:11.5px;margin-bottom:10px;line-height:1.7">
+  <b>Deploy Apps Script proxy (làm 1 lần duy nhất):</b><br>
+  1. Mở <a href="https://script.google.com" target="_blank">script.google.com</a> → New project<br>
+  2. Xóa code cũ, dán code sau vào:<br>
+  <pre id="gas_code" style="background:#0a0c14;color:#8891b8;padding:8px;border-radius:5px;font-size:10.5px;overflow-x:auto;white-space:pre-wrap;cursor:pointer" onclick="copyGasCode()" title="Click để copy">function doGet(e){
+  var folderId = e.parameter.folderId;
+  var folder = DriveApp.getFolderById(folderId);
+  var files = folder.getFiles();
+  var ids = [];
+  while(files.hasNext()){
+    var f = files.next();
+    var mime = f.getMimeType();
+    if(mime.indexOf('image')>-1){
+      ids.push(f.getId());
+    }
+  }
+  return ContentService
+    .createTextOutput(JSON.stringify({ids:ids}))
+    .setMimeType(ContentService.MimeType.JSON);
+}</pre>
+  3. <b>Deploy</b> → New deployment → Web app → Execute as: <b>Me</b> → Who has access: <b>Anyone</b> → Deploy<br>
+  4. Copy URL dạng <code>https://script.google.com/macros/s/ABC.../exec</code> → paste vào ô trên<br>
+  <span style="color:var(--ok)">✅ Chỉ cần làm 1 lần, dùng mãi mãi cho mọi folder Drive.</span>
+</div>
+
+<div class="uz">
+  <input type="file" accept="image/*" multiple onchange="addImgs(this.files)">
+  <div style="font-size:22px">🖼️</div>
+  <div style="font-size:12.5px">Upload ảnh thủ công — đặt tên có STT (vd: <code>1_cccd.jpg</code>) để tự gán</div>
+</div>
+<div id="il" style="margin-top:8px"></div>
+</div>
+
+<div class="card">
+<div class="ct">⚙️ XUẤT FILE</div>
+<div style="display:flex;gap:8px;margin-bottom:11px">
+  <button class="tb on" id="mi" onclick="setMode('i')">📄 Từng file riêng</button>
+  <button class="tb" id="mm" onclick="setMode('m')">📋 1 file Word gộp</button>
+</div>
+<div class="row" style="margin-bottom:10px">
+  <div class="f"><label>Chỉ xuất STT (trống = tất cả, vd: 1,3,5-8)</label><input id="fstt" placeholder=""></div>
+</div>
+<div class="folder-row" id="folder-row">
+  <span id="folder-label">📁 Chưa chọn thư mục lưu</span>
+  <button class="btn bs bsm" onclick="pickFolder()">Chọn thư mục…</button>
+</div>
+<div class="br">
+  <button class="btn bp" onclick="generate()">🚀 Tạo GUQ</button>
+  <button class="btn bs" onclick="clearLog()">🗑️ Xóa log</button>
+</div>
+<div class="pb" id="pw"><div class="pbi" id="pb"></div></div>
+<div class="log" id="log"></div>
+</div>
+
+<script>
+
+const TEMPLATE_B64 = "UEsDBBQABgAIAAAAIQAykW9XZgEAAKUFAAATAAgCW0NvbnRlbnRfVHlwZXNdLnhtbCCiBAIooAACAAAAAAAAAAAAAAAAAAAAAAAA" +
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC0lMtqwzAQRfeF/oPRtthKuiilxMmij2UbaPoBijRO" +
+"RPVCo7z+vuM4MaUkMTTJxiDP3HvPCDGD0dqabAkRtXcl6xc9loGTXmk3K9nX5C1/ZBkm4ZQw3kHJNoBsNLy9GUw2ATAjtcOSzVMK" +
+"T5yjnIMVWPgAjiqVj1YkOsYZD0J+ixnw+17vgUvvEriUp9qDDQcvUImFSdnrmn43JBEMsuy5aayzSiZCMFqKRHW+dOpPSr5LKEi5" +
+"7cG5DnhHDYwfTKgrxwN2ug+6mqgVZGMR07uw1MVXPiquvFxYUhanbQ5w+qrSElp97Rail4BId25N0Vas0G7Pf5TDLewUIikvD9Ja" +
+"d0Jg2hjAyxM0vt3xkBIJrgGwc+5EWMH082oUv8w7QSrKnYipgctjtNadEInWADTf/tkcW5tTkdQ5jj4grZX4j7H3e6NW5zRwgJj0" +
+"6VfXJpL12fNBvZIUqAPZfLtkhz8AAAD//wMAUEsDBBQABgAIAAAAIQAekRq37wAAAE4CAAALAAgCX3JlbHMvLnJlbHMgogQCKKAA" +
+"AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAArJLBasMwDEDvg/2D" +
+"0b1R2sEYo04vY9DbGNkHCFtJTBPb2GrX/v082NgCXelhR8vS05PQenOcRnXglF3wGpZVDYq9Cdb5XsNb+7x4AJWFvKUxeNZw4gyb" +
+"5vZm/cojSSnKg4tZFYrPGgaR+IiYzcAT5SpE9uWnC2kiKc/UYySzo55xVdf3mH4zoJkx1dZqSFt7B6o9Rb6GHbrOGX4KZj+xlzMt" +
+"kI/C3rJdxFTqk7gyjWop9SwabDAvJZyRYqwKGvC80ep6o7+nxYmFLAmhCYkv+3xmXBJa/ueK5hk/Nu8hWbRf4W8bnF1B8wEAAP//" +
+"AwBQSwMEFAAGAAgAAAAhAHfLGOYzFAAAXnYAABEAAAB3b3JkL2RvY3VtZW50LnhtbOxd24/bVnp/L9D/4WCebGBi8X6ZrL3gRZwR" +
+"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" +
+"AAAADAAMAAEDAABFSAAAAAA=";
+
+let kocData=[], parsedKocs=[], manImgs={}, mode='i', saveDir=null;
+
+// ---- DRIVE ID HELPERS ----
+function driveFileId(url){
+  if(!url) return null;
+  if(/\/folders\//.test(url)) return null;
+  let m=url.match(/\/d\/([a-zA-Z0-9_-]{20,})/);
+  if(m) return m[1];
+  m=url.match(/[?&]id=([a-zA-Z0-9_-]{20,})/);
+  if(m) return m[1];
+  return null;
+}
+function driveFolderId(url){
+  if(!url) return null;
+  const m=url.match(/\/folders\/([a-zA-Z0-9_-]{20,})/);
+  return m?m[1]:null;
+}
+// Thumbnail for preview (works for files; for folders use first-file trick)
+function driveThumbUrl(url){
+  const fid=driveFileId(url);
+  if(fid) return 'https://drive.google.com/thumbnail?id='+fid+'&sz=w120';
+  // For folders: show folder icon placeholder
+  return null;
+}
+
+function showGasHelp(){const el=document.getElementById('gas_help');el.style.display=el.style.display==='none'?'block':'none'}
+function toggleAdminMode(){
+  const inp=document.getElementById('gas_url');
+  if(inp.readOnly){
+    const pw=prompt('Nhập mật khẩu admin:');
+    if(pw==='Voduchuyphuc@1410'){
+      inp.readOnly=false;inp.style.opacity='1';inp.style.cursor='text';
+      inp.focus();xlog('ok','🔓 Chế độ admin — có thể chỉnh Apps Script URL');
+    } else if(pw!==null){xlog('er','❌ Sai mật khẩu');}
+  } else {
+    inp.readOnly=true;inp.style.opacity='0.7';inp.style.cursor='default';
+    xlog('inf','🔒 Đã khoá Apps Script URL');
+  }
+}
+function checkAdminUnlock(inp){if(inp.readOnly){inp.blur();toggleAdminMode();}}
+function copyGasCode(){const t=document.getElementById('gas_code').innerText;navigator.clipboard.writeText(t).then(()=>xlog('ok','✅ Đã copy code Apps Script')).catch(()=>xlog('er','Copy thất bại — chọn tay và Ctrl+C'))}
+function toggleTheme(){const r=document.documentElement,c=r.getAttribute('data-theme');r.setAttribute('data-theme',c==='dark'?'light':'dark');document.getElementById('th').textContent=c==='dark'?'🌙':'☀️'}
+
+function handleDrop(e){e.preventDefault();document.getElementById('ez').classList.remove('drag');const f=e.dataTransfer.files[0];if(f)loadExcel(f)}
+function setMode(m){mode=m;document.getElementById('mi').classList.toggle('on',m==='i');document.getElementById('mm').classList.toggle('on',m==='m')}
+
+// ---- FOLDER PICKER ----
+async function pickFolder(){
+  if(!window.showDirectoryPicker){xlog('er','⚠️ Trình duyệt không hỗ trợ chọn thư mục. File sẽ tự lưu về Downloads.');return}
+  try{
+    saveDir=await window.showDirectoryPicker({mode:'readwrite'});
+    document.getElementById('folder-label').textContent='📁 '+saveDir.name;
+    xlog('ok','✅ Thư mục: '+saveDir.name);
+  }catch(e){if(e.name!=='AbortError')xlog('er','Lỗi chọn thư mục: '+e.message)}
+}
+
+async function saveFile(bytes, filename){
+  // Try File System Access API (local file://)
+  if(saveDir){
+    try{
+      const fh=await saveDir.getFileHandle(filename,{create:true});
+      const wr=await fh.createWritable();
+      await wr.write(bytes);
+      await wr.close();
+      return;
+    }catch(e){xlog('er','Lỗi ghi file: '+e.message)}
+  }
+  // Try Artifact downloads capability (runs in claude.ai https sandbox)
+  if(window.claude){
+    try{
+      const dl=await window.claude.use('downloads');
+      if(dl){
+        const blob=new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+        await dl.save({filename, data: blob});
+        return;
+      }
+    }catch(e){xlog('inf','ℹ️ downloads capability: '+e.message)}
+  }
+  // Fallback: browser download via <a>
+  const blob=new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),5000);
+}
+
+// ---- EXCEL ----
+function loadExcel(file){
+  document.getElementById('en').textContent='📎 '+file.name;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      kocData=XLSX.utils.sheet_to_json(ws,{defval:''});
+      parsedKocs=kocData.map(parseKoc);
+      renderPreview();
+      xlog('ok','✅ Đã tải '+kocData.length+' dòng');
+    }catch(err){xlog('er','❌ Lỗi Excel: '+err.message)}
+  };
+  r.readAsArrayBuffer(file);
+}
+
+function renderPreview(){
+  if(!parsedKocs.length) return;
+  // Show raw columns
+  const rawCols=Object.keys(kocData[0]).slice(0,5);
+  let h='<details style="margin-top:8px"><summary style="cursor:pointer;font-size:12px;color:var(--fg2);padding:4px 0">▶ Xem cột Excel gốc ('+kocData.length+' dòng)</summary><div class="tw"><table><thead><tr>'+rawCols.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>';
+  kocData.slice(0,3).forEach(r=>{h+='<tr>'+rawCols.map(c=>'<td class="ov">'+String(r[c]).substring(0,60)+'</td>').join('')+'</tr>'});
+  h+='</tbody></table></div></details>';
+  // Show parsed data
+  h+='<div style="margin-top:10px;font-size:11.5px;font-weight:700;color:var(--ac)">✔ Dữ liệu đã parse (kiểm tra trước khi xuất):</div>';
+  h+='<div class="tw"><table><thead><tr><th>STT</th><th>Họ tên</th><th>CCCD</th><th>Địa chỉ</th><th>Kênh</th><th>Ảnh CCCD</th></tr></thead><tbody>';
+  parsedKocs.forEach(k=>{
+    const ok=k.hoTen&&k.cccd;
+    let imgCell='<span style="color:var(--fg2);font-size:11px">—</span>';
+    if(k.driveLink){
+      const fid=driveFileId(k.driveLink);
+      const folId=driveFolderId(k.driveLink);
+      if(fid){
+        const thumb='https://drive.google.com/thumbnail?id='+fid+'&sz=w120';
+        imgCell='<img src="'+thumb+'" style="max-height:36px;max-width:60px;border-radius:3px;object-fit:cover" onerror="this.outerHTML=\'<span style=&quot;color:var(--er);font-size:10px&quot;>❌ lỗi</span>\'" title="'+k.driveLink.substring(0,60)+'">';
+      } else if(folId){
+        imgCell='<span style="color:var(--ac);font-size:11px" title="'+k.driveLink+'">📂 folder</span>';
+      } else {
+        imgCell='<span style="color:var(--fg2);font-size:10px">link?</span>';
+      }
+    }
+    // Check manual upload
+    for(const mk of Object.keys(manImgs)){
+      if(String(manImgs[mk].stt)===String(k.stt)) imgCell='<span style="color:var(--ok);font-size:11px">📁 upload</span>';
+    }
+    h+='<tr style="'+(ok?'':'background:var(--erb)')+'">'
+      +'<td>'+k.stt+'</td>'
+      +'<td>'+(k.hoTen||'<span style="color:var(--er)">❌ TRỐNG</span>')+'</td>'
+      +'<td>'+(k.cccd||'<span style="color:var(--er)">❌ TRỐNG</span>')+'</td>'
+      +'<td class="ov" style="max-width:120px">'+k.diaChi+'</td>'
+      +'<td class="ov" style="max-width:120px">'+k.kenh+'</td>'
+      +'<td>'+imgCell+'</td>'
+      +'</tr>';
+  });
+  h+='</tbody></table></div>';
+  document.getElementById('ep').innerHTML=h;
+}
+
+// ---- MANUAL IMAGES ----
+function addImgs(files){
+  const con=document.getElementById('il');
+  Array.from(files).forEach(f=>{
+    const stt=(f.name.match(/\d+/)||[''])[0];
+    manImgs[f.name]={file:f,stt};
+    const d=document.createElement('div');
+    d.style.cssText='display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--bd)';
+    const fn=f.name;
+    d.innerHTML='<span>🖼️</span><span style="flex:1;font-size:12px">'+fn+'</span>'
+      +'<span style="font-size:12px;color:var(--fg2)">STT:</span>'
+      +'<input type="number" value="'+stt+'" min="1" style="width:55px;font-size:12px" oninput="manImgs[\''+fn+'\'].stt=this.value">'
+      +'<button class="btn bs bsm" onclick="delete manImgs[\''+fn+'\'];this.closest(\'div\').remove()">✕</button>';
+    con.appendChild(d);
+  });
+}
+
+// ---- LOG ----
+function xlog(type,msg){const el=document.getElementById('log');el.style.display='block';const d=document.createElement('div');d.className=type;d.textContent=msg;el.appendChild(d);el.scrollTop=el.scrollHeight}
+function clearLog(){const el=document.getElementById('log');el.innerHTML='';el.style.display='none';document.getElementById('pw').style.display='none'}
+function setP(v){document.getElementById('pw').style.display='block';document.getElementById('pb').style.width=v+'%'}
+
+// ---- PARSE KOC ----
+function findCol(row, candidates){
+  for(const k of Object.keys(row)){
+    if(candidates.some(c=>k.toLowerCase().trim()===c.toLowerCase().trim())) return String(row[k]);
+  }
+  // fuzzy: contains
+  for(const k of Object.keys(row)){
+    if(candidates.some(c=>k.toLowerCase().includes(c.toLowerCase()))) return String(row[k]);
+  }
+  return '';
+}
+
+function parseKoc(row){
+  const stt=String(findCol(row,['stt','STT','Số TT','số tt','Số thứ tự','so thu tu'])||'').trim();
+
+  // --- Cấu trúc 1: cột riêng lẻ (như file NGHIEM_THU) ---
+  const hoTenDirect=findCol(row,['Họ và tên','họ và tên','Ho va ten','Họ tên','họ tên','ho ten','HoTen',
+    'Full Name','full name','Name','name','Creator','creator','Tên KOC','tên koc']).trim();
+  const cccdDirect=findCol(row,['Số CCCD','số cccd','CCCD','cccd','Số CMND','so cccd','SoCCCD',
+    'Passport','passport','CMND','cmnd']).trim();
+  const diaChiDirect=findCol(row,['Địa chỉ','địa chỉ','Dia chi','dia chi','DiaChi','Address','address']).trim();
+  const kenhDirect=findCol(row,['Link Tiktok / ID kênh','Link Tiktok','link tiktok','Tiktok','tiktok',
+    'Link kênh','link kênh','Kênh','kênh','kenh','Platform','platform','Link kênh TikTok',
+    'ID kênh','id kênh','TikTok','Youtube','Facebook','Instagram']).trim();
+
+  // Nếu có đủ thông tin từ cột riêng → dùng luôn
+  // Drive link for CCCD image
+  const driveLink=findCol(row,['Ảnh CCCD 2 mặt (Link drive)','Ảnh CCCD 2 mặt','Ảnh CCCD','anh cccd',
+    'Link drive','link drive','Drive Link','CCCD Image','cccd image','Ảnh','ảnh']).trim();
+
+  if(hoTenDirect && cccdDirect){
+    xlog('dbg','  ['+stt+'] Cột riêng: "'+hoTenDirect+'" CCCD='+cccdDirect+(driveLink?' 📎drive':''));
+    return{stt,hoTen:hoTenDirect,cccd:cccdDirect,diaChi:diaChiDirect,kenh:kenhDirect,creator:hoTenDirect,driveLink};
+  }
+
+  // --- Cấu trúc 2: cột gộp "Thông tin" ---
+  const raw=findCol(row,['Thông tin','thông tin','thong tin','ThongTin','Thông Tin','info','Info']).trim();
+  let hoTen=hoTenDirect,cccd=cccdDirect,diaChi=diaChiDirect,kenh=kenhDirect;
+
+  if(raw){
+    const lines=raw.split(/\r?\n|\\n/).map(l=>l.trim()).filter(Boolean);
+    xlog('dbg','  ['+stt+'] Cột gộp lines='+lines.length+': '+JSON.stringify(lines.slice(0,3)));
+    for(const l of lines){
+      if(!hoTen && /họ tên|full name/i.test(l))
+        hoTen=l.replace(/^(họ tên\s*[\/\\]?\s*full name\s*[:：]\s*|họ tên\s*[:：]\s*)/i,'').trim();
+      else if(!cccd && /^cccd|^passport|^cmnd|số cccd/i.test(l))
+        cccd=l.replace(/^(cccd\s*[\/\\]?\s*passport\s*[:：]\s*|cccd\s*[:：]\s*|cmnd\s*[:：]\s*|số cccd\s*[:：]\s*)/i,'').trim();
+      else if(!diaChi && /địa chỉ|address/i.test(l))
+        diaChi=l.replace(/^(địa chỉ\s*[\/\\]?\s*address\s*[:：]\s*|địa chỉ\s*[:：]\s*)/i,'').trim();
+      else if(/thông tin kênh|kênh\s*[:：]|tiktok|youtube|facebook|instagram/i.test(l)){
+        if(!kenh) kenh=l.replace(/^(thông tin kênh[^:：]*[:：]\s*)/i,'').trim();
+        else kenh+='\n'+l;
+      }
+    }
+    if(!hoTen&&lines[0]) hoTen=lines[0];
+    if(!cccd&&lines[1]) cccd=lines[1];
+    if(!diaChi&&lines[2]) diaChi=lines[2];
+    if(!kenh&&lines.length>3) kenh=lines.slice(3).join('\n');
+  }
+
+  if(!hoTen) hoTen=hoTenDirect;
+  xlog('dbg','  ['+stt+'] → hoTen="'+hoTen+'" cccd="'+cccd+'"'+(driveLink?' 📎drive':''));
+  return{stt,hoTen,cccd,diaChi,kenh,creator:hoTen,driveLink};
+}
+
+// ---- XML HELPERS ----
+function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+function fillSec1(xml, label, value){
+  if(!value) return xml;
+  // Template run: <w:t xml:space="preserve">LABEL </w:t>  (trailing space, value is empty)
+  // Replace trailing space + closing tag with: space + value + closing tag
+  const target=label+' </w:t>';
+  const repl=label+' '+esc(value)+'</w:t>';
+  if(xml.includes(target)) return xml.split(target).join(repl);
+  // Fallback: label without space (some variants)
+  const t2=label+'</w:t>';
+  if(xml.includes(t2)) return xml.split(t2).join(label+' '+esc(value)+'</w:t>');
+  xlog('er','  ⚠️ Không tìm thấy label: '+label.substring(0,30));
+  return xml;
+}
+
+function replaceExact(xml, oldVal, newVal){
+  if(!oldVal||!newVal||oldVal===newVal) return xml;
+  return xml.split(esc(oldVal)).join(esc(newVal)).split(oldVal).join(newVal);
+}
+
+// ---- FILL ONE KOC INTO XML BODY ----
+function fillBody(bodyXml, koc, opts){
+  let x=bodyXml;
+
+  // Số/Ngày: runs=['Số:'][' ']['           Ngày:'][' 29/09/2026']
+  if(koc.stt){
+    // run[1] = ' ' between Số: and Ngày:, replace with ' STT    '
+    x=x.replace(
+      /(>Số:<\/w:t><\/w:r><w:r[^>]*><w:t[^>]*>) (<\/w:t><\/w:r>)(<w:r[^>]*><w:t[^>]*>           Ngày:)/,
+      '$1 '+esc(koc.stt)+'         $2$3'
+    );
+  }
+  if(opts.signDate){
+    x=x.replace(
+      /(>           Ngày:<\/w:t><\/w:r><w:r[^>]*><w:t[^>]*>) [^<]+(<\/w:t><\/w:r><\/w:p>)/,
+      '$1 '+esc(opts.signDate)+'$2'
+    );
+  }
+
+  // Section I
+  x=fillSec1(x,'Họ tên / Full name:',koc.hoTen);
+  x=fillSec1(x,'CCCD/Passport:',koc.cccd);
+  x=fillSec1(x,'Địa chỉ / Address:',koc.diaChi);
+  x=fillSec1(x,'Thông tin kênh được ủy quyền (nền tảng, tên kênh, link/handle, ID):',koc.kenh);
+
+  // Section II
+  x=replaceExact(x,'Võ Đức Huy Phúc',opts.mgrName||'Võ Đức Huy Phúc');
+  x=replaceExact(x,'066200016584',opts.mgrCccd||'066200016584');
+  x=replaceExact(x,'Chung cư 43 Hồ Văn Huê, Đức Nhuận, Phú Nhuận, TP.HCM',opts.mgrAddr||'Chung cư 43 Hồ Văn Huê, Đức Nhuận, Phú Nhuận, TP.HCM');
+
+  // Section III
+  if(opts.campName) x=replaceExact(x,'GOOGL_2607_CREATOR BOOKING_ MONEE_GOOGLE_CREATOR PACKAGE_INB',opts.campName);
+  if(opts.campTime){
+    // 3 runs: 'Tháng 0' + '9' + '/2026' → replace with single value run
+    x=x.replace(
+      /(>Thời gian: <\/w:t><\/w:r>)((?:<w:r[^>]*>(?:<w:rPr>[\s\S]*?<\/w:rPr>)?<w:t[^>]*>[^<]*<\/w:t><\/w:r>)+)(<\/w:p>)/,
+      '$1<w:r><w:t>'+esc(opts.campTime)+'</w:t></w:r>$3'
+    );
+  }
+
+  // Signatures
+  x=replaceExact(x,'NGUYỄN TẤN DŨNG',(koc.hoTen||'').toUpperCase());
+  x=replaceExact(x,'VÕ ĐỨC HUY PHÚC',(opts.mgrName||'VÕ ĐỨC HUY PHÚC').toUpperCase());
+
+  return x;
+}
+
+// ---- LOAD ONE IMG SRC → ArrayBuffer via canvas ----
+function imgSrcToBuffer(src){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.crossOrigin='anonymous';
+    img.onload=()=>{
+      try{
+        const canvas=document.createElement('canvas');
+        canvas.width=img.naturalWidth||img.width||800;
+        canvas.height=img.naturalHeight||img.height||600;
+        const ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0);
+        canvas.toBlob(blob=>{
+          if(!blob){reject(new Error('toBlob failed'));return;}
+          const fr=new FileReader();
+          fr.onload=e=>resolve(e.target.result);
+          fr.onerror=reject;
+          fr.readAsArrayBuffer(blob);
+        },'image/jpeg',0.92);
+      }catch(e){reject(e);}
+    };
+    img.onerror=()=>reject(new Error('load failed'));
+    img.src=src;
+    setTimeout(()=>reject(new Error('timeout')),12000);
+  });
+}
+
+// ---- LOAD ONE FILE ID → ArrayBuffer ----
+async function fetchFileId(fileId){
+  const candidates=[
+    'https://drive.google.com/thumbnail?id='+fileId+'&sz=w1600',
+    'https://lh3.googleusercontent.com/d/'+fileId+'=w1600',
+  ];
+  for(const src of candidates){
+    try{
+      const buf=await imgSrcToBuffer(src);
+      xlog('dbg','      ↳ OK: '+src.substring(0,55)+'...');
+      return buf;
+    }catch(e){
+      xlog('dbg','      ↳ '+src.substring(0,50)+' → '+e.message);
+    }
+  }
+  return null;
+}
+
+// ---- GET ALL IMAGE FILE IDs FROM DRIVE FOLDER ----
+// Uses Apps Script proxy (user deploys once — no CORS issue)
+async function allFileIdsInFolder(folderId){
+  const gasUrl=(document.getElementById('gas_url')||{}).value||'';
+
+  if(gasUrl.trim()){
+    // Use Apps Script proxy — no CORS problem, works from file://
+    try{
+      const url=gasUrl.trim()+'?folderId='+encodeURIComponent(folderId);
+      xlog('dbg','    → Gọi Apps Script: '+url.substring(0,70)+'...');
+      const resp=await fetch(url);
+      if(!resp.ok) throw new Error('HTTP '+resp.status);
+      const data=await resp.json();
+      if(data.ids&&data.ids.length){
+        xlog('dbg','    📂 Apps Script trả về '+data.ids.length+' file IDs');
+        return data.ids;
+      }
+      xlog('er','    ⚠️ Apps Script không trả về file IDs. Kiểm tra lại script.');
+      return [];
+    }catch(e){
+      xlog('er','    ❌ Lỗi Apps Script: '+e.message);
+      return [];
+    }
+  }
+
+  // No Apps Script URL — cannot list folder from browser
+  xlog('er','    ❌ Cần Apps Script URL để đọc folder Drive. Xem hướng dẫn ở phần "Ảnh CCCD".');
+  return [];
+}
+
+// ---- FETCH ALL IMAGES FROM DRIVE URL (file or folder) → ArrayBuffer[] ----
+async function fetchAllImgs(url){
+  if(!url) return [];
+
+  const fileId=driveFileId(url);
+  const folderId=driveFolderId(url);
+
+  // Single file link
+  if(fileId){
+    const buf=await fetchFileId(fileId);
+    return buf?[buf]:[];
+  }
+
+  // Folder link → load ALL images
+  if(folderId){
+    xlog('inf','    📂 Folder link → tải tất cả ảnh trong folder...');
+    const ids=await allFileIdsInFolder(folderId);
+    if(!ids.length){
+      xlog('er','    ❌ Không lấy được danh sách file. Folder phải công khai "Anyone with link".');
+      return [];
+    }
+    const bufs=[];
+    for(const id of ids){
+      xlog('dbg','    → thử fileId: '+id);
+      const buf=await fetchFileId(id);
+      if(buf) bufs.push(buf);
+      if(bufs.length>=10) break; // safety limit
+    }
+    xlog(bufs.length?'ok':'er','    📂 Tải được '+bufs.length+'/'+ids.length+' ảnh từ folder');
+    return bufs;
+  }
+
+  // Direct URL
+  if(/^https?:\/\//.test(url)){
+    try{ const buf=await imgSrcToBuffer(url); return [buf]; }catch(e){}
+  }
+  return [];
+}
+
+// ---- BACKWARD COMPAT: single image fetch ----
+async function fetchImg(url){
+  const bufs=await fetchAllImgs(url);
+  return bufs.length?bufs[0]:null;
+}
+
+// ---- GET IMAGE DIMENSIONS FROM ARRAYBUFFER ----
+function getImgDims(buf, mime){
+  const v=new DataView(buf);
+  try{
+    if(mime==='image/jpeg'||mime==='image/jpg'){
+      let i=2;
+      while(i<v.byteLength-9){
+        const marker=v.getUint16(i);
+        if(marker>=0xFFC0&&marker<=0xFFCF&&marker!==0xFFC4&&marker!==0xFFC8){
+          return{h:v.getUint16(i+5),w:v.getUint16(i+7)};
+        }
+        i+=2+v.getUint16(i+2);
+      }
+    } else if(mime==='image/png'){
+      return{w:v.getUint32(16),h:v.getUint32(20)};
+    }
+  }catch(e){}
+  return{w:1600,h:1000}; // sensible default
+}
+
+// ---- DETECT MIME FROM BUFFER ----
+function detectMime(buf){
+  const b=new Uint8Array(buf,0,4);
+  if(b[0]===0xFF&&b[1]===0xD8) return 'image/jpeg';
+  if(b[0]===0x89&&b[1]===0x50&&b[2]===0x4E&&b[3]===0x47) return 'image/png';
+  if(b[0]===0x47&&b[1]===0x49&&b[2]===0x46) return 'image/gif';
+  if(b[0]===0x42&&b[1]===0x4D) return 'image/bmp';
+  return 'image/jpeg'; // fallback
+}
+
+// ---- ADD IMAGE PAGE TO ZIP ----
+// imgBuf: ArrayBuffer of image, imgIdx: unique index (1,2,3...), zip: JSZip instance
+// Returns the XML paragraph block to inject into document body
+function addImageToZip(zip, imgBuf, imgIdx){
+  const mime=detectMime(imgBuf);
+  const ext=mime==='image/png'?'png':mime==='image/gif'?'gif':'jpg';
+  const mediaPath='word/media/cccd_'+imgIdx+'.'+ext;
+
+  // Add image file to zip
+  zip.file(mediaPath, imgBuf);
+
+  // Add Content_Types entry for this extension if not already present
+  // (handled by patching Content_Types.xml)
+
+  // Get dimensions — target max width 17cm (6141 EMU/cm → 17cm = 6350400 EMU page width minus margins)
+  // Page: 12240 twips wide, margins 1080+990=2070 twips → usable 10170 twips = 10170/1440*914400 ≈ 6454050 EMU
+  const dims=getImgDims(imgBuf,mime);
+  // Page usable: width ~16.5cm (6000000 EMU), height ~24cm (8700000 EMU)
+  // Half page height = ~4350000 EMU (~12cm) — minimum size per image
+  // Max per image = ~8cm height so 2-3 images fit on one page
+  const maxEmuW=6000000; // ~16.5cm max width
+  const maxEmuH=2900000; // ~8cm max height per image (fits 2-3 per page)
+  const minEmuW=3500000; // ~9.6cm min width (at least half page width)
+  const minEmuH=1800000; // ~5cm min height (at least reasonable size)
+  let emuW=Math.round(dims.w*9144); // 1px ≈ 9144 EMU at 96dpi
+  let emuH=Math.round(dims.h*9144);
+  // Scale down if too large
+  if(emuW>maxEmuW){const r=maxEmuW/emuW;emuW=maxEmuW;emuH=Math.round(emuH*r);}
+  if(emuH>maxEmuH){const r=maxEmuH/emuH;emuH=maxEmuH;emuW=Math.round(emuW*r);}
+  // Scale up if too small (at least half page width)
+  if(emuW<minEmuW && emuH<minEmuH){
+    const r=Math.min(minEmuW/emuW, minEmuH/emuH);
+    emuW=Math.round(emuW*r); emuH=Math.round(emuH*r);
+    // Re-check max after scaling up
+    if(emuW>maxEmuW){const r2=maxEmuW/emuW;emuW=maxEmuW;emuH=Math.round(emuH*r2);}
+    if(emuH>maxEmuH){const r2=maxEmuH/emuH;emuH=maxEmuH;emuW=Math.round(emuW*r2);}
+  }
+
+  // Relationship ID for this image
+  const rId='rIdImg'+imgIdx;
+
+  // Store relationship info to patch .rels later
+  return{rId,mediaPath,emuW,emuH,ext,mime};
+}
+
+// ---- BUILD IMAGE PARAGRAPH XML ----
+function imgParaXml(rId, emuW, emuH, imgIdx){
+  const descId=imgIdx;
+  return `<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:before="120" w:after="120"/></w:pPr>`+
+  `<w:r><w:rPr><w:noProof/></w:rPr>`+
+  `<w:drawing>`+
+  `<wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" distT="0" distB="0" distL="0" distR="0">`+
+  `<wp:extent cx="${emuW}" cy="${emuH}"/>`+
+  `<wp:effectExtent l="0" t="0" r="0" b="0"/>`+
+  `<wp:docPr id="${descId}" name="cccd_${imgIdx}"/>`+
+  `<wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr>`+
+  `<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">`+
+  `<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">`+
+  `<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">`+
+  `<pic:nvPicPr><pic:cNvPr id="${descId}" name="cccd_${imgIdx}"/><pic:cNvPicPr/></pic:nvPicPr>`+
+  `<pic:blipFill>`+
+  `<a:blip r:embed="${rId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/>`+
+  `<a:stretch><a:fillRect/></a:stretch>`+
+  `</pic:blipFill>`+
+  `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${emuW}" cy="${emuH}"/></a:xfrm>`+
+  `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>`+
+  `</pic:spPr>`+
+  `</pic:pic>`+
+  `</a:graphicData></a:graphic></wp:inline>`+
+  `</w:drawing></w:r></w:p>`;
+}
+
+// ---- PATCH RELS XML ----
+function patchRels(relsXml, entries){
+  // entries: [{rId, mediaPath}]
+  let insert='';
+  for(const e of entries){
+    // mediaPath like 'word/media/cccd_1.jpg' → target relative to word/ = 'media/cccd_1.jpg'
+    const target=e.mediaPath.replace('word/','');
+    insert+=`<Relationship Id="${e.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${target}"/>`;
+  }
+  return relsXml.replace('</Relationships>',insert+'</Relationships>');
+}
+
+// ---- PATCH CONTENT TYPES ----
+function patchContentTypes(ctXml, exts){
+  let result=ctXml;
+  for(const ext of exts){
+    const mime=ext==='png'?'image/png':ext==='gif'?'image/gif':'image/jpeg';
+    if(!result.includes('Extension="'+ext+'"')){
+      result=result.replace('</Types>',`<Default Extension="${ext}" ContentType="${mime}"/></Types>`);
+    }
+  }
+  return result;
+}
+
+// ---- RESOLVE ALL IMAGES FOR KOC → ArrayBuffer[] ----
+async function resolveImgs(koc){
+  // Manual uploads for this STT (may be multiple)
+  const manBufs=[];
+  for(const k of Object.keys(manImgs)){
+    if(String(manImgs[k].stt)===String(koc.stt)){
+      const buf=await new Promise((res,rej)=>{
+        const fr=new FileReader();
+        fr.onload=e=>res(e.target.result);
+        fr.onerror=rej;
+        fr.readAsArrayBuffer(manImgs[k].file);
+      });
+      manBufs.push(buf);
+    }
+  }
+  if(manBufs.length) return manBufs;
+
+  // Drive link from Excel
+  if(koc.driveLink){
+    xlog('inf','    📥 Tải ảnh CCCD STT '+koc.stt+' từ Drive...');
+    return await fetchAllImgs(koc.driveLink);
+  }
+  return [];
+}
+// backward compat
+async function resolveImg(koc){ const b=await resolveImgs(koc); return b.length?b[0]:null; }
+
+// ---- BUILD SINGLE DOC (one KOC) ----
+async function buildOneDoc(templateBytes, koc, opts){
+  const zip=await JSZip.loadAsync(templateBytes);
+  let xml=await zip.file('word/document.xml').async('string');
+  const bodyStart=xml.indexOf('<w:body>')+8;
+  const bodyEnd=xml.indexOf('</w:body>');
+  const before=xml.substring(0,bodyStart);
+  const after=xml.substring(bodyEnd);
+  let body=xml.substring(bodyStart,bodyEnd);
+  body=fillBody(body,koc,opts);
+
+  // --- Embed ALL CCCD images ---
+  const imgBufs=await resolveImgs(koc);
+  if(imgBufs.length){
+    const sectMatch=body.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/);
+    const sectPr=sectMatch?sectMatch[0]:'';
+    const bodyNoSect=sectPr?body.substring(0,body.lastIndexOf(sectPr)):body;
+    const pageBreak='<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:br w:type="page"/></w:r></w:p>';
+    const relEntries=[]; const usedExts=new Set();
+    let imgPages=pageBreak;
+    imgBufs.forEach((buf,i)=>{
+      const info=addImageToZip(zip,buf,i+1);
+      relEntries.push(info); usedExts.add(info.ext);
+      imgPages+=imgParaXml(info.rId,info.emuW,info.emuH,i+1);
+    });
+    body=bodyNoSect+imgPages+sectPr;
+    let relsXml=await zip.file('word/_rels/document.xml.rels').async('string');
+    zip.file('word/_rels/document.xml.rels',patchRels(relsXml,relEntries));
+    let ctXml=await zip.file('[Content_Types].xml').async('string');
+    zip.file('[Content_Types].xml',patchContentTypes(ctXml,[...usedExts]));
+    xlog('ok','    🖼️ Đã nhúng '+imgBufs.length+' ảnh CCCD vào GUQ');
+  }
+
+  zip.file('word/document.xml',before+body+after);
+  return zip.generateAsync({type:'uint8array',compression:'DEFLATE'});
+}
+
+// ---- BUILD MERGED DOC (all KOCs in one file) ----
+async function buildMergedDoc(templateBytes, kocs, opts){
+  const zip=await JSZip.loadAsync(templateBytes);
+  const xml=await zip.file('word/document.xml').async('string');
+  const bodyStart=xml.indexOf('<w:body>')+8;
+  const bodyEnd=xml.indexOf('</w:body>');
+  const before=xml.substring(0,bodyStart);
+  const after=xml.substring(bodyEnd);
+  const templateBody=xml.substring(bodyStart,bodyEnd);
+
+  const sectMatch=templateBody.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/);
+  const sectPr=sectMatch?sectMatch[0]:'';
+  const bodyNoSect=sectPr?templateBody.substring(0,templateBody.lastIndexOf(sectPr)):templateBody;
+  const pageBreak='<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:br w:type="page"/></w:r></w:p>';
+
+  let mergedBody='';
+  const relEntries=[];
+  const usedExts=new Set();
+  let imgIdx=0;
+
+  for(let i=0;i<kocs.length;i++){
+    if(i>0) mergedBody+=pageBreak;
+    const filled=fillBody(bodyNoSect,kocs[i],opts);
+    mergedBody+=filled;
+
+    // Append ALL images for this KOC
+    const imgBufs=await resolveImgs(kocs[i]);
+    if(imgBufs.length){
+      mergedBody+=pageBreak;
+      imgBufs.forEach(buf=>{
+        imgIdx++;
+        const info=addImageToZip(zip,buf,imgIdx);
+        relEntries.push(info); usedExts.add(info.ext);
+        mergedBody+=imgParaXml(info.rId,info.emuW,info.emuH,imgIdx);
+      });
+      xlog('ok','    🖼️ ['+kocs[i].stt+'] Nhúng '+imgBufs.length+' ảnh CCCD');
+    }
+  }
+  mergedBody+=sectPr;
+
+  // Patch rels and content types
+  if(relEntries.length>0){
+    let relsXml=await zip.file('word/_rels/document.xml.rels').async('string');
+    relsXml=patchRels(relsXml,relEntries);
+    zip.file('word/_rels/document.xml.rels',relsXml);
+    let ctXml=await zip.file('[Content_Types].xml').async('string');
+    ctXml=patchContentTypes(ctXml,[...usedExts]);
+    zip.file('[Content_Types].xml',ctXml);
+  }
+
+  zip.file('word/document.xml',before+mergedBody+after);
+  return zip.generateAsync({type:'uint8array',compression:'DEFLATE'});
+}
+
+// ---- GENERATE ----
+async function generate(){
+  if(!kocData.length){xlog('er','❌ Chưa tải Excel!');return}
+  const opts={
+    mgrName:  document.getElementById('mgr_name').value.trim(),
+    mgrCccd:  document.getElementById('mgr_cccd').value.trim(),
+    mgrAddr:  document.getElementById('mgr_addr').value.trim(),
+    campName: document.getElementById('camp_name').value.trim(),
+    campTime: document.getElementById('camp_time').value.trim(),
+    signDate: document.getElementById('sign_date').value.trim(),
+  };
+
+  const fstt=document.getElementById('fstt').value.trim();
+  let allow=null;
+  if(fstt){
+    allow=new Set();
+    fstt.split(',').forEach(p=>{
+      const rg=p.trim().match(/^(\d+)-(\d+)$/);
+      if(rg){for(let i=+rg[1];i<=+rg[2];i++)allow.add(String(i))}
+      else allow.add(p.trim());
+    });
+  }
+
+  // Re-parse with debug logging
+  parsedKocs=kocData.map(parseKoc);
+  const rows=parsedKocs.filter(k=>!allow||allow.has(k.stt));
+  if(!rows.length){xlog('er','❌ Không có KOC nào khớp');return}
+
+  xlog('inf','🚀 Tạo '+rows.length+' GUQ, chế độ: '+(mode==='i'?'riêng lẻ':'gộp 1 file'));
+  xlog('dbg','Thông tin NQL: '+opts.mgrName+' | '+opts.mgrCccd);
+  setP(5);
+
+  let tmpl;
+  try{tmpl=Uint8Array.from(atob(TEMPLATE_B64),c=>c.charCodeAt(0))}
+  catch(e){xlog('er','❌ Template lỗi: '+e.message);return}
+
+  if(mode==='i'){
+    // Individual files
+    for(let i=0;i<rows.length;i++){
+      const koc=rows[i];
+      xlog('dbg','  ['+koc.stt+'] Họ tên="'+koc.hoTen+'" CCCD="'+koc.cccd+'" Địa chỉ="'+koc.diaChi.substring(0,30)+'"');
+      setP(5+i/rows.length*90);
+      try{
+        const bytes=await buildOneDoc(tmpl,koc,opts);
+        const safe=(koc.hoTen||'KOC').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/Đ/g,'D').replace(/đ/g,'d').replace(/[^A-Z0-9 ]/g,'').replace(/\s+/g,'_').substring(0,40);
+        const fname='GUQ_'+String(koc.stt).padStart(2,'0')+'_'+safe+'.docx';
+        await saveFile(bytes,fname);
+        xlog('ok','  ✅ '+fname);
+      }catch(e){xlog('er','  ❌ ['+koc.stt+']: '+e.message)}
+      await new Promise(r=>setTimeout(r,0));
+    }
+  }else{
+    // Merged single DOCX
+    xlog('inf','  Đang gộp '+rows.length+' KOC vào 1 file...');
+    rows.forEach((k,i)=>xlog('dbg','  ['+(i+1)+'] '+k.stt+' - '+k.hoTen));
+    try{
+      const bytes=await buildMergedDoc(tmpl,rows,opts);
+      const fname='GUQ_All_'+new Date().toISOString().slice(0,10)+'.docx';
+      await saveFile(bytes,fname);
+      xlog('ok','  ✅ Đã gộp '+rows.length+' GUQ → '+fname);
+    }catch(e){xlog('er','❌ Lỗi gộp: '+e.message+'\n'+e.stack)}
+  }
+
+  setP(100);
+  xlog('ok','🎉 Hoàn tất!');
+}
+
+// Init
+const t=new Date();
+document.getElementById('sign_date').value=String(t.getDate()).padStart(2,'0')+'/'+String(t.getMonth()+1).padStart(2,'0')+'/'+t.getFullYear();
+
+</script>
