@@ -1226,7 +1226,8 @@ async function generate(){
   xlog('inf','🚀 Tạo '+rows.length+' GUQ, chế độ: '+(mode==='i'?'riêng lẻ':'gộp 1 file'));
   xlog('dbg','Thông tin NQL: '+opts.mgrName+' | '+opts.mgrCccd);
   setP(5);
-  const driveFails=[]; // [{stt, hoTen, driveLink}]
+  const driveFails=[];   // [{stt, hoTen, driveLink}] — có link nhưng không lấy được ảnh
+  const singleImgs=[];   // [{stt, hoTen}] — lấy được đúng 1 ảnh (có thể thiếu mặt sau)
   Object.keys(_imgCache).forEach(k=>delete _imgCache[k]); // reset cache mỗi lần generate
 
   let tmpl;
@@ -1240,10 +1241,11 @@ async function generate(){
       xlog('dbg','  ['+koc.stt+'] Họ tên="'+koc.hoTen+'" CCCD="'+koc.cccd+'" Địa chỉ="'+koc.diaChi.substring(0,30)+'"');
       setP(5+i/rows.length*90);
       try{
-        // Track drive fail trước khi build
+        // Track drive fail + single image trước khi build
         if(koc.driveLink){
-          const {driveFailed}=await resolveImgs(koc);
+          const {bufs,driveFailed}=await resolveImgs(koc);
           if(driveFailed) driveFails.push(koc);
+          else if(bufs.length===1) singleImgs.push(koc);
         }
         const bytes=await buildOneDoc(tmpl,koc,opts);
         const safe=(koc.hoTen||'KOC').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/Đ/g,'D').replace(/đ/g,'d').replace(/[^A-Z0-9 ]/g,'').replace(/\s+/g,'_').substring(0,40);
@@ -1258,8 +1260,9 @@ async function generate(){
     // Pre-check để thu thập driveFails trước
     for(const koc of rows){
       if(koc.driveLink){
-        const {driveFailed}=await resolveImgs(koc);
+        const {bufs,driveFailed}=await resolveImgs(koc);
         if(driveFailed) driveFails.push(koc);
+        else if(bufs.length===1) singleImgs.push(koc);
       }
     }
     xlog('inf','  Đang gộp '+rows.length+' KOC vào 1 file...');
@@ -1275,15 +1278,30 @@ async function generate(){
   setP(100);
   xlog('ok','🎉 Hoàn tất!');
 
-  // ---- BÁO CÁO DRIVE KHÔNG MỞ QUYỀN ----
+  // ---- BÁO CÁO TỔNG HỢP ----
+  const hasIssues = driveFails.length>0 || singleImgs.length>0;
+  if(hasIssues){
+    xlog('inf','━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    xlog('inf','📋 BÁO CÁO SAU XUẤT FILE');
+    xlog('inf','━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  }
   if(driveFails.length>0){
-    xlog('er','━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    xlog('er','⚠️  '+driveFails.length+' link Drive CHƯA MỞ QUYỀN "Anyone with the link":');
+    xlog('er','🔒 '+driveFails.length+' KOC có link Drive CHƯA MỞ QUYỀN (không lấy được ảnh):');
     driveFails.forEach((k,idx)=>{
-      xlog('er','  '+(idx+1)+'. STT '+k.stt+' — '+k.hoTen+(k.driveLink?' → '+k.driveLink.substring(0,60)+'…':''));
+      xlog('er','  '+(idx+1)+'. STT '+k.stt+' — '+k.hoTen);
     });
-    xlog('er','━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    xlog('inf','👉 Yêu cầu các KOC trên vào Google Drive → chuột phải file → Share → Anyone with the link → Viewer');
+    xlog('inf','  👉 Yêu cầu KOC: Drive → chuột phải → Share → Anyone with the link → Viewer');
+  }
+  if(singleImgs.length>0){
+    if(driveFails.length>0) xlog('inf','  ');
+    xlog('inf','⚠️  '+singleImgs.length+' KOC CHỈ CÓ 1 ẢNH CCCD (có thể thiếu mặt sau):');
+    singleImgs.forEach((k,idx)=>{
+      xlog('inf','  '+(idx+1)+'. STT '+k.stt+' — '+k.hoTen);
+    });
+    xlog('inf','  👉 Kiểm tra lại folder Drive của các KOC trên — cần đủ 2 ảnh (mặt trước + mặt sau)');
+  }
+  if(hasIssues){
+    xlog('inf','━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
 }
 
