@@ -930,21 +930,21 @@ function addImageToZip(zip, imgBuf, imgIdx, totalImgs){
 
   // Get dimensions
   const dims=getImgDims(imgBuf,mime);
-  // Page usable: width ~16.5cm (6000000 EMU), height ~24cm (8700000 EMU)
-  // Divide page height evenly among all images, with small spacing gap per image
+  // Page A4 usable height sau khi trừ margin trên/dưới (~2.5cm mỗi bên)
+  // ≈ 29.7cm - 5cm = ~24.7cm → nhân 0.75 để thu nhỏ 25% → ~18.5cm = 6700000 EMU
   const n=Math.max(totalImgs||1,1);
-  const pageH=8700000; // ~24cm usable page height in EMU
-  const spacing=200000; // ~0.55cm gap between images
-  const maxEmuW=6000000; // ~16.5cm max width
+  const pageH=6700000; // ~18.5cm usable (đã trừ margin + thu nhỏ 25%)
+  const spacing=400000; // ~1.1cm khoảng cách giữa các ảnh
+  const maxEmuW=Math.round(6000000*0.75); // ~12.4cm max width (thu nhỏ 25%)
   // Each image gets an equal slice of the page height minus gaps
   const maxEmuH=Math.floor((pageH - spacing*(n+1)) / n);
-  const minEmuW=3500000; // ~9.6cm min width
+  const minEmuW=2500000; // ~6.9cm min width
   let emuW=Math.round(dims.w*9144); // 1px ≈ 9144 EMU at 96dpi
   let emuH=Math.round(dims.h*9144);
   // Scale down to fit within allocated slot (maintain aspect ratio)
   if(emuW>maxEmuW){const r=maxEmuW/emuW;emuW=maxEmuW;emuH=Math.round(emuH*r);}
   if(emuH>maxEmuH){const r=maxEmuH/emuH;emuH=maxEmuH;emuW=Math.round(emuW*r);}
-  // Scale up if too small (at least ~9.6cm wide)
+  // Scale up if too small
   if(emuW<minEmuW){
     const r=minEmuW/emuW;
     emuW=Math.round(emuW*r); emuH=Math.round(emuH*r);
