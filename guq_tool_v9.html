@@ -46,7 +46,24 @@ tr:hover td{background:var(--acl)}
 #th{position:fixed;top:11px;right:11px;background:var(--sf);border:1px solid var(--bd);border-radius:7px;padding:5px 8px;cursor:pointer;font-size:14px;z-index:100}
 .folder-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--sf2);border:1px solid var(--bd);border-radius:7px;font-size:12.5px;margin-top:10px}
 .folder-row span{flex:1;color:var(--fg2)}
-@media(max-width:580px){.row{flex-direction:column}.f{min-width:unset}}
+/* History */
+.hist-empty{color:var(--fg2);font-size:12.5px;text-align:center;padding:20px;opacity:.6}
+.hist-row{display:grid;grid-template-columns:120px 1fr 1fr auto;gap:0;cursor:pointer;border-bottom:1px solid var(--bd);transition:background .12s}
+.hist-row:last-child{border-bottom:none}
+.hist-row:hover{background:var(--acl)}
+.hist-row>div{padding:8px 10px;font-size:12px;display:flex;align-items:center}
+.hist-row>.hd{font-size:11px;color:var(--fg2)}
+.hist-badge{display:inline-block;padding:2px 7px;border-radius:12px;font-size:10.5px;font-weight:700}
+.hist-badge.ind{background:#e8f4ff;color:#1971c2}.hist-badge.mrg{background:#fff0f6;color:#c2255c}
+:root[data-theme=dark] .hist-badge.ind,:root:not([data-theme=light]) .hist-badge.ind{background:#0d2a4a;color:#74c0fc}
+:root[data-theme=dark] .hist-badge.mrg,:root:not([data-theme=light]) .hist-badge.mrg{background:#3d0a20;color:#f783ac}
+.hist-toggle{font-size:10px;color:var(--fg2);transition:transform .2s;user-select:none}
+.hist-detail{display:none;background:#0a0c14;border-left:3px solid var(--ac);border-radius:0 0 7px 7px;padding:10px 13px;font-family:monospace;font-size:12px;color:#8891b8;line-height:1.6;max-height:260px;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
+.hist-detail.open{display:block}
+.hist-detail .ok{color:#51cf66}.hist-detail .er{color:#ff6b6b}.hist-detail .inf{color:#748ffc}.hist-detail .dbg{color:#ffd43b}
+.hist-hdr{display:grid;grid-template-columns:120px 1fr 1fr auto;background:var(--sf2);border-radius:7px 7px 0 0;border-bottom:1px solid var(--bd)}
+.hist-hdr>div{padding:5px 10px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--fg2)}
+@media(max-width:580px){.row{flex-direction:column}.f{min-width:unset}.hist-row,.hist-hdr{grid-template-columns:100px 1fr auto}}
 </style>
 <button id="th" onclick="toggleTheme()">🌙</button>
 <h1>📄 GUQ Generator</h1>
@@ -173,6 +190,16 @@ tr:hover td{background:var(--acl)}
 </div>
 <div class="pb" id="pw"><div class="pbi" id="pb"></div></div>
 <div class="log" id="log"></div>
+</div>
+
+<div class="card" id="hist-card">
+<div class="ct" style="display:flex;align-items:center;justify-content:space-between">
+  <span>🗂️ LỊCH SỬ XUẤT GUQ</span>
+  <button class="btn bs bsm" onclick="clearHistory()" style="font-size:11px">🗑️ Xóa lịch sử</button>
+</div>
+<div id="hist-list">
+  <div class="hist-empty">Chưa có lần xuất nào được ghi lại.</div>
+</div>
 </div>
 
 <script>
@@ -600,7 +627,8 @@ function addImgs(files){
 }
 
 // ---- LOG ----
-function xlog(type,msg){const el=document.getElementById('log');el.style.display='block';const d=document.createElement('div');d.className=type;d.textContent=msg;el.appendChild(d);el.scrollTop=el.scrollHeight}
+let _logBuffer=null; // null = không ghi, array = đang ghi cho session hiện tại
+function xlog(type,msg){const el=document.getElementById('log');el.style.display='block';const d=document.createElement('div');d.className=type;d.textContent=msg;el.appendChild(d);el.scrollTop=el.scrollHeight;if(_logBuffer)_logBuffer.push({type,msg})}
 function clearLog(){const el=document.getElementById('log');el.innerHTML='';el.style.display='none';document.getElementById('pw').style.display='none'}
 function setP(v){document.getElementById('pw').style.display='block';document.getElementById('pb').style.width=v+'%'}
 
@@ -1223,6 +1251,7 @@ async function generate(){
   const rows=parsedKocs.filter(k=>!allow||allow.has(k.stt));
   if(!rows.length){xlog('er','❌ Không có KOC nào khớp');return}
 
+  _logBuffer=[]; // bắt đầu ghi log cho history
   xlog('inf','🚀 Tạo '+rows.length+' GUQ, chế độ: '+(mode==='i'?'riêng lẻ':'gộp 1 file'));
   xlog('dbg','Thông tin NQL: '+opts.mgrName+' | '+opts.mgrCccd);
   setP(5);
@@ -1303,10 +1332,108 @@ async function generate(){
   if(hasIssues){
     xlog('inf','━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
+
+  // Lưu vào lịch sử
+  addHistoryEntry({
+    ts: Date.now(),
+    mode,
+    campaign: opts.campName||'',
+    kocCount: rows.length,
+    log: _logBuffer||[]
+  });
+  _logBuffer=null;
 }
+
+// ==================== LỊCH SỬ XUẤT ====================
+const HIST_KEY='guq_export_history';
+const HIST_MAX=50;
+
+function loadHistory(){
+  try{return JSON.parse(localStorage.getItem(HIST_KEY)||'[]')}
+  catch(e){return []}
+}
+
+function saveHistory(entries){
+  try{localStorage.setItem(HIST_KEY,JSON.stringify(entries))}catch(e){}
+}
+
+function addHistoryEntry(entry){
+  const entries=loadHistory();
+  entries.unshift(entry); // newest first
+  if(entries.length>HIST_MAX) entries.length=HIST_MAX;
+  saveHistory(entries);
+  renderHistory();
+}
+
+function clearHistory(){
+  if(!confirm('Xóa toàn bộ lịch sử xuất GUQ?')) return;
+  localStorage.removeItem(HIST_KEY);
+  renderHistory();
+}
+
+function formatHistDate(ts){
+  const d=new Date(ts);
+  const dd=String(d.getDate()).padStart(2,'0');
+  const mm=String(d.getMonth()+1).padStart(2,'0');
+  const yy=d.getFullYear();
+  const hh=String(d.getHours()).padStart(2,'0');
+  const mn=String(d.getMinutes()).padStart(2,'0');
+  return dd+'/'+mm+'/'+yy+' '+hh+':'+mn;
+}
+
+function toggleHistDetail(id){
+  const el=document.getElementById('hd-'+id);
+  const ic=document.getElementById('hi-'+id);
+  if(!el) return;
+  const open=el.classList.toggle('open');
+  if(ic) ic.textContent=open?'▲':'▼';
+}
+
+function renderHistory(){
+  const entries=loadHistory();
+  const wrap=document.getElementById('hist-list');
+  if(!entries.length){
+    wrap.innerHTML='<div class="hist-empty">Chưa có lần xuất nào được ghi lại.</div>';
+    return;
+  }
+  let html='<div class="hist-hdr">'
+    +'<div>Ngày xuất</div><div>Tên campaign</div>'
+    +'<div>Định dạng</div><div></div>'
+    +'</div>';
+  entries.forEach((e,i)=>{
+    const badge=e.mode==='i'
+      ?'<span class="hist-badge ind">📄 Xuất lẻ</span>'
+      :'<span class="hist-badge mrg">📋 Xuất gộp</span>';
+    const camp=e.campaign||'—';
+    const kocCount=e.kocCount?(' · '+e.kocCount+' KOC'):'';
+    html+='<div class="hist-row" onclick="toggleHistDetail('+i+')">'
+      +'<div>'+formatHistDate(e.ts)+'</div>'
+      +'<div style="flex-direction:column;align-items:flex-start;gap:1px"><span>'+esc(camp)+'</span>'
+      +(kocCount?'<span style="font-size:10px;color:var(--fg2)">'+kocCount+'</span>':'')
+      +'</div>'
+      +'<div>'+badge+'</div>'
+      +'<div><span class="hist-toggle" id="hi-'+i+'">▼</span></div>'
+      +'</div>'
+      +'<div class="hist-detail" id="hd-'+i+'">'+renderLogLines(e.log)+'</div>';
+  });
+  wrap.innerHTML=html;
+}
+
+function renderLogLines(lines){
+  if(!lines||!lines.length) return '<span style="opacity:.5">Không có log</span>';
+  return lines.map(l=>{
+    const cls=l.type||'inf';
+    return '<span class="'+cls+'">'+escHtml(l.msg)+'</span>';
+  }).join('\n');
+}
+
+function escHtml(s){return esc(s)}
+
+// ==================== END LỊCH SỬ ====================
 
 // Init
 const t=new Date();
 document.getElementById('sign_date').value=String(t.getDate()).padStart(2,'0')+'/'+String(t.getMonth()+1).padStart(2,'0')+'/'+t.getFullYear();
+renderHistory();
 
 </script>
