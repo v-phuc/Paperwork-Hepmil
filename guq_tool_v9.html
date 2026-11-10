@@ -116,16 +116,19 @@ tr:hover td{background:var(--acl)}
   var folderId = e.parameter.folderId;
   var folder = DriveApp.getFolderById(folderId);
   var files = folder.getFiles();
-  var ids = [];
+  var items = [];
+  var SKIP = ['application/vnd.google-apps.folder',
+              'application/vnd.google-apps.form',
+              'application/vnd.google-apps.script'];
   while(files.hasNext()){
     var f = files.next();
     var mime = f.getMimeType();
-    if(mime.indexOf('image')>-1){
-      ids.push(f.getId());
+    if(SKIP.indexOf(mime) === -1){
+      items.push({id: f.getId(), mime: mime});
     }
   }
   return ContentService
-    .createTextOutput(JSON.stringify({ids:ids}))
+    .createTextOutput(JSON.stringify({items:items}))
     .setMimeType(ContentService.MimeType.JSON);
 }</pre>
   3. <b>Deploy</b> → New deployment → Web app → Execute as: <b>Me</b> → Who has access: <b>Anyone</b> → Deploy<br>
@@ -756,18 +759,44 @@ function imgSrcToBuffer(src){
 }
 
 // ---- LOAD ONE FILE ID → ArrayBuffer ----
-async function fetchFileId(fileId){
-  const candidates=[
-    'https://drive.google.com/thumbnail?id='+fileId+'&sz=w1600',
-    'https://lh3.googleusercontent.com/d/'+fileId+'=w1600',
-  ];
+async function fetchFileId(fileId, mimeHint){
+  // mimeHint: mime type string from Apps Script (optional)
+  // For Google Docs/Slides/Sheets → export as JPEG (renders first page)
+  const isGoogleDoc = mimeHint && (
+    mimeHint==='application/vnd.google-apps.document' ||
+    mimeHint==='application/vnd.google-apps.presentation' ||
+    mimeHint==='application/vnd.google-apps.spreadsheet' ||
+    mimeHint==='application/vnd.google-apps.drawing'
+  );
+  const isPdf = mimeHint && mimeHint==='application/pdf';
+
+  const candidates=[];
+
+  if(isGoogleDoc){
+    // Export Google Doc/Slides/Sheets as JPEG image (first page)
+    candidates.push('https://docs.google.com/feeds/download/'+
+      (mimeHint.includes('presentation')?'presentations':'documents')+
+      '/Export?id='+fileId+'&exportFormat=jpeg');
+    // Fallback: thumbnail (lower quality but always works)
+    candidates.push('https://drive.google.com/thumbnail?id='+fileId+'&sz=w1600');
+  } else if(isPdf){
+    // PDF: use thumbnail endpoint (Drive renders PDF pages as images)
+    candidates.push('https://drive.google.com/thumbnail?id='+fileId+'&sz=w1600&pageid=1');
+    candidates.push('https://drive.google.com/thumbnail?id='+fileId+'&sz=w1600');
+  } else {
+    // Regular image files (jpg, png, etc.)
+    candidates.push('https://drive.google.com/thumbnail?id='+fileId+'&sz=w1600');
+    candidates.push('https://lh3.googleusercontent.com/d/'+fileId+'=w1600');
+    candidates.push('https://drive.google.com/uc?export=download&id='+fileId);
+  }
+
   for(const src of candidates){
     try{
       const buf=await imgSrcToBuffer(src);
-      xlog('dbg','      ↳ OK: '+src.substring(0,55)+'...');
+      xlog('dbg','      ↳ OK: '+src.substring(0,60)+'...');
       return buf;
     }catch(e){
-      xlog('dbg','      ↳ '+src.substring(0,50)+' → '+e.message);
+      xlog('dbg','      ↳ '+src.substring(0,55)+' → '+e.message);
     }
   }
   return null;
@@ -786,11 +815,17 @@ async function allFileIdsInFolder(folderId){
       const resp=await fetch(url);
       if(!resp.ok) throw new Error('HTTP '+resp.status);
       const data=await resp.json();
-      if(data.ids&&data.ids.length){
-        xlog('dbg','    📂 Apps Script trả về '+data.ids.length+' file IDs');
-        return data.ids;
+      // New format: {items:[{id,mime},...]}
+      if(data.items&&data.items.length){
+        xlog('dbg','    📂 Apps Script trả về '+data.items.length+' files');
+        return data.items; // [{id,mime}]
       }
-      xlog('er','    ⚠️ Apps Script không trả về file IDs. Kiểm tra lại script.');
+      // Legacy format: {ids:[...]} — old Apps Script version
+      if(data.ids&&data.ids.length){
+        xlog('dbg','    📂 Apps Script (legacy) trả về '+data.ids.length+' file IDs');
+        return data.ids.map(id=>({id,mime:'image/jpeg'}));
+      }
+      xlog('er','    ⚠️ Apps Script không trả về dữ liệu. Kiểm tra lại script.');
       return [];
     }catch(e){
       xlog('er','    ❌ Lỗi Apps Script: '+e.message);
@@ -825,9 +860,13 @@ async function fetchAllImgs(url){
       return [];
     }
     const bufs=[];
-    for(const id of ids){
-      xlog('dbg','    → thử fileId: '+id);
-      const buf=await fetchFileId(id);
+    for(const item of ids){
+      // item is {id, mime} or legacy string
+      const fid=typeof item==='string'?item:item.id;
+      const fmime=typeof item==='string'?null:item.mime;
+      const label=fmime?(' ['+fmime.split('/').pop()+']'):'';
+      xlog('dbg','    → thử fileId: '+fid+label);
+      const buf=await fetchFileId(fid, fmime);
       if(buf) bufs.push(buf);
       if(bufs.length>=10) break; // safety limit
     }
@@ -1024,7 +1063,13 @@ async function buildOneDoc(templateBytes, koc, opts){
       relEntries.push(info); usedExts.add(info.ext);
       imgPages+=imgParaXml(info.rId,info.emuW,info.emuH,i+1);
     });
-    body=bodyNoSect+imgPages+sectPr;
+    // Đưa sectPr vào paragraph cuối cùng thay vì paragraph riêng
+    // để tránh Word tạo trang trắng thừa sau trang ảnh
+    const sectInLastPara = sectPr
+      ? imgPages.replace(/(<\/w:p>)\s*$/,
+          m=>'<w:pPr>'+sectPr+'</w:pPr>'+m)
+      : imgPages;
+    body=bodyNoSect+sectInLastPara;
     let relsXml=await zip.file('word/_rels/document.xml.rels').async('string');
     zip.file('word/_rels/document.xml.rels',patchRels(relsXml,relEntries));
     let ctXml=await zip.file('[Content_Types].xml').async('string');
@@ -1074,7 +1119,11 @@ async function buildMergedDoc(templateBytes, kocs, opts){
       xlog('ok','    🖼️ ['+kocs[i].stt+'] Nhúng '+imgBufs.length+' ảnh CCCD');
     }
   }
-  mergedBody+=sectPr;
+  // Nhúng sectPr vào paragraph cuối cùng để tránh trang trắng thừa
+  if(sectPr){
+    mergedBody=mergedBody.replace(/(<\/w:p>)\s*$/,
+      m=>'<w:pPr>'+sectPr+'</w:pPr>'+m);
+  }
 
   // Patch rels and content types
   if(relEntries.length>0){
