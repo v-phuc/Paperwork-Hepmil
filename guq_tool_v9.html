@@ -1056,15 +1056,16 @@ async function buildOneDoc(templateBytes, koc, opts){
     const sectPr=sectMatch?sectMatch[0]:'';
     const bodyNoSect=sectPr?body.substring(0,body.lastIndexOf(sectPr)):body;
     const pageBreak='<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:br w:type="page"/></w:r></w:p>';
+    const blankPage=pageBreak; // 1 trang trắng = 1 page break
     const relEntries=[]; const usedExts=new Set();
-    let imgPages=pageBreak;
+    // Thêm 1 trang trắng TRƯỚC trang ảnh (in riêng: tờ nội dung luôn kết thúc ở mặt chẵn)
+    let imgPages=pageBreak+blankPage;
     imgBufs.forEach((buf,i)=>{
       const info=addImageToZip(zip,buf,i+1,imgBufs.length);
       relEntries.push(info); usedExts.add(info.ext);
       imgPages+=imgParaXml(info.rId,info.emuW,info.emuH,i+1);
     });
-    // Đưa sectPr vào paragraph cuối cùng thay vì paragraph riêng
-    // để tránh Word tạo trang trắng thừa sau trang ảnh
+    // Đưa sectPr vào paragraph cuối cùng để tránh trang trắng thừa
     const sectInLastPara = sectPr
       ? imgPages.replace(/(<\/w:p>)\s*$/,
           m=>'<w:pPr>'+sectPr+'</w:pPr>'+m)
@@ -1109,14 +1110,17 @@ async function buildMergedDoc(templateBytes, kocs, opts){
     // Append ALL images for this KOC
     const imgBufs=await resolveImgs(kocs[i]);
     if(imgBufs.length){
-      mergedBody+=pageBreak;
+      // Trang trắng TRƯỚC trang ảnh (đảm bảo tờ nội dung kết thúc ở mặt chẵn)
+      mergedBody+=pageBreak+pageBreak;
       imgBufs.forEach((buf,j)=>{
         imgIdx++;
         const info=addImageToZip(zip,buf,imgIdx,imgBufs.length);
         relEntries.push(info); usedExts.add(info.ext);
         mergedBody+=imgParaXml(info.rId,info.emuW,info.emuH,imgIdx);
       });
-      xlog('ok','    🖼️ ['+kocs[i].stt+'] Nhúng '+imgBufs.length+' ảnh CCCD');
+      // Trang trắng SAU trang ảnh (đảm bảo KOC tiếp theo bắt đầu ở mặt lẻ mới)
+      mergedBody+=pageBreak;
+      xlog('ok','    🖼️ ['+kocs[i].stt+'] Nhúng '+imgBufs.length+' ảnh CCCD (+2 trang trắng bao quanh)');
     }
   }
   // Nhúng sectPr vào paragraph cuối cùng để tránh trang trắng thừa
