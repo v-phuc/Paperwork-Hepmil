@@ -153,6 +153,16 @@ tr:hover td{background:var(--acl)}
 <div class="row" style="margin-bottom:10px">
   <div class="f"><label>Chỉ xuất STT (trống = tất cả, vd: 1,3,5-8)</label><input id="fstt" placeholder=""></div>
 </div>
+<div class="row" style="margin-bottom:10px">
+  <div class="f">
+    <label>Tên file khi lưu <span style="color:var(--er);font-weight:600">(Bắt buộc)</span></label>
+    <input id="file_prefix" placeholder="Vd: GUQ_TIGER_NOV2026" oninput="this.style.borderColor=this.value.trim()?'':'var(--er)'">
+    <div style="font-size:11px;color:var(--tx2);margin-top:3px">
+      📄 File riêng: <code id="fname_preview_i">[Tên]_01_NGUYEN VAN A.docx</code> &nbsp;|&nbsp;
+      📦 Gộp: <code id="fname_preview_m">[Tên]_ALL.docx</code>
+    </div>
+  </div>
+</div>
 <div class="folder-row" id="folder-row">
   <span id="folder-label">📁 Chưa chọn thư mục lưu</span>
   <button class="btn bs bsm" onclick="pickFolder()">Chọn thư mục…</button>
@@ -1144,8 +1154,32 @@ async function buildMergedDoc(templateBytes, kocs, opts){
 }
 
 // ---- GENERATE ----
+function safePrefix(s){
+  // Làm sạch tên file: giữ chữ, số, dấu gạch, khoảng trắng → thay bằng _
+  return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/Đ/g,'D').replace(/đ/g,'d')
+    .replace(/[^A-Za-z0-9_ \-\.]/g,'').replace(/\s+/g,'_').replace(/_+/g,'_').replace(/^_|_$/g,'');
+}
+function updateFnamePreview(){
+  const raw=document.getElementById('file_prefix').value.trim();
+  const p=safePrefix(raw)||'[Tên]';
+  document.getElementById('fname_preview_i').textContent=p+'_01_NGUYEN_VAN_A.docx';
+  document.getElementById('fname_preview_m').textContent=p+'_ALL.docx';
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  const inp=document.getElementById('file_prefix');
+  if(inp) inp.addEventListener('input',updateFnamePreview);
+});
+
 async function generate(){
   if(!kocData.length){xlog('er','❌ Chưa tải Excel!');return}
+  const filePrefix=document.getElementById('file_prefix').value.trim();
+  if(!filePrefix){
+    document.getElementById('file_prefix').style.borderColor='var(--er)';
+    document.getElementById('file_prefix').focus();
+    xlog('er','❌ Vui lòng nhập Tên file trước khi tạo GUQ!');
+    return;
+  }
+  const fp=safePrefix(filePrefix)||'GUQ';
   const opts={
     mgrName:  document.getElementById('mgr_name').value.trim(),
     mgrCccd:  document.getElementById('mgr_cccd').value.trim(),
@@ -1188,7 +1222,7 @@ async function generate(){
       try{
         const bytes=await buildOneDoc(tmpl,koc,opts);
         const safe=(koc.hoTen||'KOC').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/Đ/g,'D').replace(/đ/g,'d').replace(/[^A-Z0-9 ]/g,'').replace(/\s+/g,'_').substring(0,40);
-        const fname='GUQ_'+String(koc.stt).padStart(2,'0')+'_'+safe+'.docx';
+        const fname=fp+'_'+String(koc.stt).padStart(2,'0')+'_'+safe+'.docx';
         await saveFile(bytes,fname);
         xlog('ok','  ✅ '+fname);
       }catch(e){xlog('er','  ❌ ['+koc.stt+']: '+e.message)}
@@ -1200,7 +1234,7 @@ async function generate(){
     rows.forEach((k,i)=>xlog('dbg','  ['+(i+1)+'] '+k.stt+' - '+k.hoTen));
     try{
       const bytes=await buildMergedDoc(tmpl,rows,opts);
-      const fname='GUQ_All_'+new Date().toISOString().slice(0,10)+'.docx';
+      const fname=fp+'_ALL.docx';
       await saveFile(bytes,fname);
       xlog('ok','  ✅ Đã gộp '+rows.length+' GUQ → '+fname);
     }catch(e){xlog('er','❌ Lỗi gộp: '+e.message+'\n'+e.stack)}
