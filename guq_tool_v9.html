@@ -34,7 +34,7 @@ tr:hover td{background:var(--acl)}
 .bsm{padding:4px 10px;font-size:11.5px}
 .bg{background:var(--okb);color:var(--ok);border:1px solid var(--ok)}
 .br{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
-.log{background:#0a0c14;border:1px solid var(--bd);border-radius:7px;padding:9px 11px;font-family:monospace;font-size:11px;max-height:200px;overflow-y:auto;margin-top:8px;color:#8891b8;display:none}
+.log{background:#0a0c14;border:1px solid var(--bd);border-radius:7px;padding:11px 13px;font-family:monospace;font-size:13px;max-height:350px;overflow-y:auto;margin-top:8px;color:#8891b8;display:none;line-height:1.6}
 .log .ok{color:#51cf66}.log .er{color:#ff6b6b}.log .inf{color:#748ffc}.log .dbg{color:#ffd43b}
 .pb{background:var(--sf2);border-radius:20px;height:6px;overflow:hidden;margin-top:7px;display:none}
 .pbi{height:100%;background:var(--ac);border-radius:20px;transition:width .3s;width:0}
@@ -437,6 +437,7 @@ const TEMPLATE_B64 = "UEsDBBQABgAIAAAAIQAykW9XZgEAAKUFAAATAAgCW0NvbnRlbnRfVHlwZX
 "AAAADAAMAAEDAABFSAAAAAA=";
 
 let kocData=[], parsedKocs=[], manImgs={}, mode='i', saveDir=null;
+const _imgCache={}; // cache: driveLink+stt → {bufs, driveFailed}
 
 // ---- DRIVE ID HELPERS ----
 function driveFileId(url){
@@ -1022,6 +1023,9 @@ function patchContentTypes(ctXml, exts){
 }
 
 // ---- RESOLVE ALL IMAGES FOR KOC → ArrayBuffer[] ----
+// Trả về {bufs:[], driveFailed:bool}
+// driveFailed=true khi có driveLink nhưng không lấy được ảnh nào
+// Có cache trong session để tránh fetch Drive 2 lần khi pre-check + build
 async function resolveImgs(koc){
   // Manual uploads for this STT (may be multiple)
   const manBufs=[];
@@ -1036,14 +1040,19 @@ async function resolveImgs(koc){
       manBufs.push(buf);
     }
   }
-  if(manBufs.length) return manBufs;
+  if(manBufs.length) return {bufs:manBufs, driveFailed:false};
 
   // Drive link from Excel
   if(koc.driveLink){
+    const cacheKey=koc.stt+'|'+koc.driveLink;
+    if(_imgCache[cacheKey]) return _imgCache[cacheKey];
     xlog('inf','    📥 Tải ảnh CCCD STT '+koc.stt+' từ Drive...');
-    return await fetchAllImgs(koc.driveLink);
+    const bufs=await fetchAllImgs(koc.driveLink);
+    const result={bufs, driveFailed: bufs.length===0};
+    _imgCache[cacheKey]=result;
+    return result;
   }
-  return [];
+  return {bufs:[], driveFailed:false};
 }
 // backward compat
 async function resolveImg(koc){ const b=await resolveImgs(koc); return b.length?b[0]:null; }
@@ -1060,7 +1069,7 @@ async function buildOneDoc(templateBytes, koc, opts){
   body=fillBody(body,koc,opts);
 
   // --- Embed ALL CCCD images ---
-  const imgBufs=await resolveImgs(koc);
+  const {bufs:imgBufs}=await resolveImgs(koc);
   if(imgBufs.length){
     const sectMatch=body.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/);
     const sectPr=sectMatch?sectMatch[0]:'';
@@ -1118,9 +1127,9 @@ async function buildMergedDoc(templateBytes, kocs, opts){
     mergedBody+=filled;
 
     // Append ALL images for this KOC
-    const imgBufs=await resolveImgs(kocs[i]);
+    const {bufs:imgBufs, driveFailed}=await resolveImgs(kocs[i]);
     if(imgBufs.length){
-      // Trang trắng TRƯỚC trang ảnh (đảm bảo tờ nội dung kết thúc ở mặt chẵn)
+      // Trang trắng TRƯỚC trang ảnh
       mergedBody+=pageBreak+pageBreak;
       imgBufs.forEach((buf,j)=>{
         imgIdx++;
@@ -1128,9 +1137,18 @@ async function buildMergedDoc(templateBytes, kocs, opts){
         relEntries.push(info); usedExts.add(info.ext);
         mergedBody+=imgParaXml(info.rId,info.emuW,info.emuH,imgIdx);
       });
-      // Trang trắng SAU trang ảnh (đảm bảo KOC tiếp theo bắt đầu ở mặt lẻ mới)
+      // Trang trắng SAU trang ảnh
       mergedBody+=pageBreak;
       xlog('ok','    🖼️ ['+kocs[i].stt+'] Nhúng '+imgBufs.length+' ảnh CCCD (+2 trang trắng bao quanh)');
+    } else if(driveFailed){
+      // Drive có link nhưng không truy cập được → chừa 3 trang:
+      // trang trắng (đệm) + trang placeholder (add thủ công) + trang trắng (đệm)
+      const placeholder=
+        '<w:p><w:pPr><w:jc w:val="center"/></w:pPr>'+
+        '<w:r><w:rPr><w:color w:val="AAAAAA"/><w:sz w:val="20"/></w:rPr>'+
+        '<w:t>[Chừa chỗ dán ảnh CCCD — '+esc(kocs[i].hoTen)+' (STT '+esc(kocs[i].stt)+')]</w:t></w:r></w:p>';
+      mergedBody+=pageBreak+pageBreak+placeholder+pageBreak;
+      xlog('inf','    ⚠️ ['+kocs[i].stt+'] Không lấy được ảnh — đã chừa 3 trang để add thủ công');
     }
   }
   // Nhúng sectPr vào paragraph cuối cùng để tránh trang trắng thừa
@@ -1208,6 +1226,8 @@ async function generate(){
   xlog('inf','🚀 Tạo '+rows.length+' GUQ, chế độ: '+(mode==='i'?'riêng lẻ':'gộp 1 file'));
   xlog('dbg','Thông tin NQL: '+opts.mgrName+' | '+opts.mgrCccd);
   setP(5);
+  const driveFails=[]; // [{stt, hoTen, driveLink}]
+  Object.keys(_imgCache).forEach(k=>delete _imgCache[k]); // reset cache mỗi lần generate
 
   let tmpl;
   try{tmpl=Uint8Array.from(atob(TEMPLATE_B64),c=>c.charCodeAt(0))}
@@ -1220,6 +1240,11 @@ async function generate(){
       xlog('dbg','  ['+koc.stt+'] Họ tên="'+koc.hoTen+'" CCCD="'+koc.cccd+'" Địa chỉ="'+koc.diaChi.substring(0,30)+'"');
       setP(5+i/rows.length*90);
       try{
+        // Track drive fail trước khi build
+        if(koc.driveLink){
+          const {driveFailed}=await resolveImgs(koc);
+          if(driveFailed) driveFails.push(koc);
+        }
         const bytes=await buildOneDoc(tmpl,koc,opts);
         const safe=(koc.hoTen||'KOC').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/Đ/g,'D').replace(/đ/g,'d').replace(/[^A-Z0-9 ]/g,'').replace(/\s+/g,'_').substring(0,40);
         const fname=fp+'_'+String(koc.stt).padStart(2,'0')+'_'+safe+'.docx';
@@ -1229,7 +1254,14 @@ async function generate(){
       await new Promise(r=>setTimeout(r,0));
     }
   }else{
-    // Merged single DOCX
+    // Merged single DOCX — drive fails được track trong buildMergedDoc qua resolveImgs
+    // Pre-check để thu thập driveFails trước
+    for(const koc of rows){
+      if(koc.driveLink){
+        const {driveFailed}=await resolveImgs(koc);
+        if(driveFailed) driveFails.push(koc);
+      }
+    }
     xlog('inf','  Đang gộp '+rows.length+' KOC vào 1 file...');
     rows.forEach((k,i)=>xlog('dbg','  ['+(i+1)+'] '+k.stt+' - '+k.hoTen));
     try{
@@ -1242,6 +1274,17 @@ async function generate(){
 
   setP(100);
   xlog('ok','🎉 Hoàn tất!');
+
+  // ---- BÁO CÁO DRIVE KHÔNG MỞ QUYỀN ----
+  if(driveFails.length>0){
+    xlog('er','━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    xlog('er','⚠️  '+driveFails.length+' link Drive CHƯA MỞ QUYỀN "Anyone with the link":');
+    driveFails.forEach((k,idx)=>{
+      xlog('er','  '+(idx+1)+'. STT '+k.stt+' — '+k.hoTen+(k.driveLink?' → '+k.driveLink.substring(0,60)+'…':''));
+    });
+    xlog('er','━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    xlog('inf','👉 Yêu cầu các KOC trên vào Google Drive → chuột phải file → Share → Anyone with the link → Viewer');
+  }
 }
 
 // Init
