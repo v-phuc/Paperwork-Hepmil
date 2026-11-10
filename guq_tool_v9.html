@@ -621,8 +621,10 @@ function parseKoc(row){
     'Link drive','link drive','Drive Link','CCCD Image','cccd image','Ảnh','ảnh']).trim();
 
   if(hoTenDirect && cccdDirect){
-    xlog('dbg','  ['+stt+'] Cột riêng: "'+hoTenDirect+'" CCCD='+cccdDirect+(driveLink?' 📎drive':''));
-    return{stt,hoTen:hoTenDirect,cccd:cccdDirect,diaChi:diaChiDirect,kenh:kenhDirect,creator:hoTenDirect,driveLink};
+    const hoTenUpper=hoTenDirect.toUpperCase();
+    if(hoTenUpper!==hoTenDirect) xlog('inf','  ['+stt+'] 🔠 Tự động in hoa tên: "'+hoTenDirect+'" → "'+hoTenUpper+'"');
+    else xlog('dbg','  ['+stt+'] Cột riêng: "'+hoTenDirect+'" CCCD='+cccdDirect+(driveLink?' 📎drive':''));
+    return{stt,hoTen:hoTenUpper,cccd:cccdDirect,diaChi:diaChiDirect,kenh:kenhDirect,creator:hoTenUpper,driveLink};
   }
 
   // --- Cấu trúc 2: cột gộp "Thông tin" ---
@@ -651,8 +653,10 @@ function parseKoc(row){
   }
 
   if(!hoTen) hoTen=hoTenDirect;
-  xlog('dbg','  ['+stt+'] → hoTen="'+hoTen+'" cccd="'+cccd+'"'+(driveLink?' 📎drive':''));
-  return{stt,hoTen,cccd,diaChi,kenh,creator:hoTen,driveLink};
+  const hoTenFinal=hoTen?hoTen.toUpperCase():hoTen;
+  if(hoTenFinal&&hoTenFinal!==hoTen) xlog('inf','  ['+stt+'] 🔠 Tự động in hoa tên: "'+hoTen+'" → "'+hoTenFinal+'"');
+  else xlog('dbg','  ['+stt+'] → hoTen="'+hoTenFinal+'" cccd="'+cccd+'"'+(driveLink?' 📎drive':''));
+  return{stt,hoTen:hoTenFinal,cccd,diaChi,kenh,creator:hoTenFinal,driveLink};
 }
 
 // ---- XML HELPERS ----
