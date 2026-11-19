@@ -58,7 +58,7 @@ tr:hover td{background:var(--acl)}
 :root[data-theme=dark] .hist-badge.ind,:root:not([data-theme=light]) .hist-badge.ind{background:#0d2a4a;color:#74c0fc}
 :root[data-theme=dark] .hist-badge.mrg,:root:not([data-theme=light]) .hist-badge.mrg{background:#3d0a20;color:#f783ac}
 .hist-toggle{font-size:10px;color:var(--fg2);transition:transform .2s;user-select:none}
-.hist-detail{display:none;background:#0a0c14;border-left:3px solid var(--ac);border-radius:0 0 7px 7px;padding:10px 13px;font-family:monospace;font-size:12px;color:#8891b8;line-height:1.6;max-height:260px;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
+.hist-detail{display:none;background:#0a0c14;border-left:3px solid var(--ac);border-radius:0 0 7px 7px;font-family:monospace;font-size:12px;color:#8891b8;line-height:1.6;max-height:320px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;padding:10px 13px 0 13px}
 .hist-detail.open{display:block}
 .hist-detail .ok{color:#51cf66}.hist-detail .er{color:#ff6b6b}.hist-detail .inf{color:#748ffc}.hist-detail .dbg{color:#ffd43b}
 .hist-hdr{display:grid;grid-template-columns:120px 1fr 1fr auto;background:var(--sf2);border-radius:7px 7px 0 0;border-bottom:1px solid var(--bd)}
@@ -168,7 +168,16 @@ tr:hover td{background:var(--acl)}
   <button class="tb" id="mm" onclick="setMode('m')">📋 1 file Word gộp</button>
 </div>
 <div class="row" style="margin-bottom:10px">
-  <div class="f"><label>Chỉ xuất STT (trống = tất cả, vd: 1,3,5-8)</label><input id="fstt" placeholder=""></div>
+  <div class="f">
+    <label>Lọc xuất (trống = tất cả) — STT, Họ tên, CCCD, hoặc Địa chỉ</label>
+    <input id="fstt" placeholder="Vd: 1,3,5-8  hoặc  Nguyễn  hoặc  04620  hoặc  Đà Nẵng" style="font-size:12px">
+    <div style="font-size:10.5px;color:var(--fg2);margin-top:3px">
+      🔢 STT: <code>1,3,5-8</code> &nbsp;·&nbsp;
+      👤 Họ tên: <code>Nguyễn</code> &nbsp;·&nbsp;
+      🪪 CCCD: <code>046205</code> &nbsp;·&nbsp;
+      📍 Địa chỉ: <code>Đà Nẵng</code>
+    </div>
+  </div>
 </div>
 <div class="row" style="margin-bottom:10px">
   <div class="f">
@@ -180,9 +189,10 @@ tr:hover td{background:var(--acl)}
     </div>
   </div>
 </div>
-<div class="folder-row" id="folder-row">
-  <span id="folder-label">📁 Chưa chọn thư mục lưu</span>
-  <button class="btn bs bsm" onclick="pickFolder()">Chọn thư mục…</button>
+<div class="folder-row" id="folder-row" onclick="pickFolder()" style="cursor:pointer;user-select:none;justify-content:flex-start;gap:10px;transition:background .15s" onmouseenter="this.style.background='var(--acl)'" onmouseleave="this.style.background=''">
+  <span style="font-size:16px">📁</span>
+  <span id="folder-label" style="flex:1;color:var(--fg2)">Chưa chọn thư mục lưu — <b style="color:var(--ac)">Nhấp để chọn</b></span>
+  <span style="font-size:11px;color:var(--fg2);opacity:.6">▶</span>
 </div>
 <div class="br">
   <button class="btn bp" onclick="generate()">🚀 Tạo GUQ</button>
@@ -515,7 +525,7 @@ async function pickFolder(){
   if(!window.showDirectoryPicker){xlog('er','⚠️ Trình duyệt không hỗ trợ chọn thư mục. File sẽ tự lưu về Downloads.');return}
   try{
     saveDir=await window.showDirectoryPicker({mode:'readwrite'});
-    document.getElementById('folder-label').textContent='📁 '+saveDir.name;
+    document.getElementById('folder-label').innerHTML='<b style="color:var(--ok)">✅ '+esc(saveDir.name)+'</b>';
     xlog('ok','✅ Thư mục: '+saveDir.name);
   }catch(e){if(e.name!=='AbortError')xlog('er','Lỗi chọn thư mục: '+e.message)}
 }
@@ -1236,20 +1246,38 @@ async function generate(){
   };
 
   const fstt=document.getElementById('fstt').value.trim();
-  let allow=null;
-  if(fstt){
-    allow=new Set();
-    fstt.split(',').forEach(p=>{
-      const rg=p.trim().match(/^(\d+)-(\d+)$/);
-      if(rg){for(let i=+rg[1];i<=+rg[2];i++)allow.add(String(i))}
-      else allow.add(p.trim());
-    });
-  }
 
   // Re-parse with debug logging
   parsedKocs=kocData.map(parseKoc);
-  const rows=parsedKocs.filter(k=>!allow||allow.has(k.stt));
-  if(!rows.length){xlog('er','❌ Không có KOC nào khớp');return}
+
+  let rows;
+  if(!fstt){
+    rows=parsedKocs;
+  } else {
+    // Phát hiện loại filter: STT (toàn số/dải), hoặc text (họ tên/CCCD/địa chỉ)
+    const parts=fstt.split(',').map(s=>s.trim()).filter(Boolean);
+    const isNumericFilter=parts.every(p=>/^\d+(-\d+)?$/.test(p));
+
+    if(isNumericFilter){
+      // Lọc theo STT
+      const allow=new Set();
+      parts.forEach(p=>{
+        const rg=p.match(/^(\d+)-(\d+)$/);
+        if(rg){for(let i=+rg[1];i<=+rg[2];i++)allow.add(String(i))}
+        else allow.add(p);
+      });
+      rows=parsedKocs.filter(k=>allow.has(k.stt));
+    } else {
+      // Lọc theo text: so khớp với họ tên, CCCD, hoặc địa chỉ (không phân biệt hoa thường, có dấu)
+      const keywords=parts.map(p=>p.toLowerCase());
+      rows=parsedKocs.filter(k=>{
+        const haystack=[k.hoTen,k.cccd,k.diaChi,k.kenh].join(' ').toLowerCase();
+        return keywords.some(kw=>haystack.includes(kw));
+      });
+      if(rows.length) xlog('inf','🔍 Lọc text "'+fstt+'" → '+rows.length+' KOC khớp');
+    }
+  }
+  if(!rows.length){xlog('er','❌ Không có KOC nào khớp với bộ lọc: '+fstt);return}
 
   _logBuffer=[]; // bắt đầu ghi log cho history
   xlog('inf','🚀 Tạo '+rows.length+' GUQ, chế độ: '+(mode==='i'?'riêng lẻ':'gộp 1 file'));
@@ -1339,6 +1367,9 @@ async function generate(){
     mode,
     campaign: opts.campName||'',
     kocCount: rows.length,
+    fp,
+    opts,
+    rows: rows.map(k=>({stt:k.stt,hoTen:k.hoTen,cccd:k.cccd,diaChi:k.diaChi,kenh:k.kenh,driveLink:k.driveLink||''})),
     log: _logBuffer||[]
   });
   _logBuffer=null;
@@ -1406,6 +1437,15 @@ function renderHistory(){
       :'<span class="hist-badge mrg">📋 Xuất gộp</span>';
     const camp=e.campaign||'—';
     const kocCount=e.kocCount?(' · '+e.kocCount+' KOC'):'';
+    const hasData=!!(e.rows&&e.rows.length&&e.opts&&e.fp);
+    // Nút in lại — chỉ hiện nếu có snapshot đủ dữ liệu
+    const replayBtns=hasData
+      ?'<div style="display:flex;gap:5px;padding:6px 10px;border-top:1px solid var(--bd);background:var(--sf2);border-radius:0 0 7px 7px;align-items:center;flex-wrap:wrap">'
+        +'<span style="font-size:10.5px;color:var(--fg2);flex:1">In lại:</span>'
+        +'<button class="btn bs bsm" onclick="event.stopPropagation();replayExport('+i+',\'i\')" style="font-size:11px">📄 Từng file riêng</button>'
+        +'<button class="btn bs bsm" onclick="event.stopPropagation();replayExport('+i+',\'m\')" style="font-size:11px">📋 File gộp</button>'
+        +'</div>'
+      :'';
     html+='<div class="hist-row" onclick="toggleHistDetail('+i+')">'
       +'<div>'+formatHistDate(e.ts)+'</div>'
       +'<div style="flex-direction:column;align-items:flex-start;gap:1px"><span>'+esc(camp)+'</span>'
@@ -1414,9 +1454,54 @@ function renderHistory(){
       +'<div>'+badge+'</div>'
       +'<div><span class="hist-toggle" id="hi-'+i+'">▼</span></div>'
       +'</div>'
-      +'<div class="hist-detail" id="hd-'+i+'">'+renderLogLines(e.log)+'</div>';
+      +'<div class="hist-detail" id="hd-'+i+'">'+renderLogLines(e.log)+replayBtns+'</div>';
   });
   wrap.innerHTML=html;
+}
+
+async function replayExport(idx, replayMode){
+  const entries=loadHistory();
+  const e=entries[idx];
+  if(!e||!e.rows||!e.opts||!e.fp){xlog('er','❌ Dữ liệu lần xuất này không đủ để in lại');return}
+
+  const logEl=document.getElementById('log');
+  logEl.style.display='block';
+  _logBuffer=[];
+  xlog('inf','🔄 In lại: '+e.campaign+' | '+(replayMode==='i'?'Từng file riêng':'File gộp')+' | '+e.rows.length+' KOC');
+  setP(5);
+
+  let tmpl;
+  try{tmpl=Uint8Array.from(atob(TEMPLATE_B64),c=>c.charCodeAt(0))}
+  catch(err){xlog('er','❌ Template lỗi: '+err.message);_logBuffer=null;return}
+
+  const rows=e.rows; // snapshot đã lưu
+  const opts=e.opts;
+  const fp=e.fp;
+
+  if(replayMode==='i'){
+    for(let i=0;i<rows.length;i++){
+      setP(5+Math.round(90*i/rows.length));
+      const koc=rows[i];
+      try{
+        const bytes=await buildOneDoc(tmpl,koc,opts);
+        const sttPad=String(koc.stt).padStart(2,'0');
+        const namePart=safePrefix(koc.hoTen).substring(0,30)||'KOC';
+        const fname=fp+'_'+sttPad+'_'+namePart+'.docx';
+        await saveFile(bytes,fname);
+        xlog('ok','  ✅ '+fname);
+      }catch(err){xlog('er','  ❌ STT '+koc.stt+': '+err.message)}
+    }
+  } else {
+    try{
+      const bytes=await buildMergedDoc(tmpl,rows,opts);
+      const fname=fp+'_ALL.docx';
+      await saveFile(bytes,fname);
+      xlog('ok','  ✅ Đã gộp '+rows.length+' GUQ → '+fname);
+    }catch(err){xlog('er','❌ Lỗi gộp: '+err.message)}
+  }
+  setP(100);
+  xlog('ok','🎉 In lại hoàn tất!');
+  _logBuffer=null;
 }
 
 function renderLogLines(lines){
